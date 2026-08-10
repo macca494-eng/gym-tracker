@@ -1,6 +1,14 @@
-# Gym Tracker PWA — v6
+# Gym Tracker PWA — v6.1
 
 Personal, mobile-first gym tracker for iPhone / web.
+
+## v6.1 hotfix
+- Fixes Workout Analysis not opening
+- Fixes Progress screen not opening
+- Adds the missing performance-metric helper used by both screens
+- Makes muscle analysis safer for custom/older exercise records
+- Treats the first session for each exercise as a baseline instead of displaying a large number of PBs
+- Uses a new service-worker cache so the fix updates on iPhone
 
 ## Improvements in v6
 - Assisted Pull-Up and Assisted Dip tracking

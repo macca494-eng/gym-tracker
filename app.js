@@ -1,4 +1,5 @@
 
+const APP_RELEASE = "6.1";
 const DEFAULT_PROGRAM = [
   {
     id:"upper-a", name:"Upper A – Strength", day:"Mon",
@@ -645,6 +646,9 @@ function findPBs(h){
     const prev=state.history.filter(x=>x.id!==h.id && x.end<h.end).flatMap(x=>x.logs).filter(x=>x.name===l.name);
     const prevSets=prev.flatMap(x=>(x.sets||[]).filter(s=>s.setType!=="warmup"));
 
+    // The first logged session establishes a baseline. PBs begin from session two.
+    if(!prevSets.length) return;
+
     if(working.some(s=>s.assistWeight!=null)){
       const best=Math.min(...working.filter(s=>s.assistWeight!=null).map(s=>s.assistWeight));
       const prevBest=prevSets.some(s=>s.assistWeight!=null)?Math.min(...prevSets.filter(s=>s.assistWeight!=null).map(s=>s.assistWeight)):Infinity;
@@ -687,7 +691,7 @@ function analysis(){
     if(l.skipped) return;
     const n=l.sets.filter(s=>s.setType!=="warmup").length;
     muscle[l.primary]=(muscle[l.primary]||0)+n;
-    l.secondary.forEach(m=>muscle[m]=(muscle[m]||0)+n*0.5);
+    (l.secondary||[]).forEach(m=>muscle[m]=(muscle[m]||0)+n*0.5);
   });
   const week=weeklyMuscleTotals();
   return shell("Workout Analysis",h.name,
@@ -728,6 +732,44 @@ function performanceLine(l,h){
   return `<div class="workout-row between"><div><strong>${l.name}</strong><div class="${cls}">${txt}</div></div><div><strong>${metric.label}</strong></div></div>`;
 }
 
+
+function bestPerformanceMetric(log){
+  const sets=(log?.sets||[]).filter(s=>s.setType!=="warmup");
+  if(!sets.length) return null;
+
+  const assisted=sets.filter(s=>s.assistWeight!=null && Number.isFinite(Number(s.assistWeight)));
+  if(assisted.length){
+    const best=[...assisted].sort((a,b)=>
+      Number(a.assistWeight)-Number(b.assistWeight) || Number(b.reps)-Number(a.reps)
+    )[0];
+    return {
+      type:"assist",
+      value:Number(best.assistWeight),
+      reps:Number(best.reps),
+      label:`${Number(best.assistWeight)} kg assistance`
+    };
+  }
+
+  const added=sets.filter(s=>s.addedWeight!=null && Number.isFinite(Number(s.addedWeight)));
+  if(added.length){
+    const best=[...added].sort((a,b)=>
+      Number(b.addedWeight)-Number(a.addedWeight) || Number(b.reps)-Number(a.reps)
+    )[0];
+    return {
+      type:"added",
+      value:Number(best.addedWeight),
+      reps:Number(best.reps),
+      label:`${Number(best.addedWeight)>0?"+":""}${Number(best.addedWeight)} kg added`
+    };
+  }
+
+  const weighted=sets.filter(s=>Number.isFinite(Number(s.weight)) && Number(s.weight)>0 && Number(s.reps)>0);
+  if(!weighted.length) return null;
+
+  const best=Math.max(...weighted.map(s=>e1rm(Number(s.weight),Number(s.reps))));
+  return {type:"e1rm",value:best,label:`${best} kg e1RM`};
+}
+
 function lastExerciseSession(name){
   for(let i=state.history.length-1;i>=0;i--){
     const l=state.history[i].logs.find(x=>x.name===name && x.sets.length);
@@ -741,7 +783,7 @@ function weeklyMuscleTotals(){
   state.history.filter(h=>h.end>=cutoff).forEach(h=>h.logs.forEach(l=>{
     const n=l.sets.filter(s=>s.setType!=="warmup").length;
     muscle[l.primary]=(muscle[l.primary]||0)+n;
-    l.secondary.forEach(m=>muscle[m]=(muscle[m]||0)+n*0.5);
+    (l.secondary||[]).forEach(m=>muscle[m]=(muscle[m]||0)+n*0.5);
   }));
   return muscle;
 }
@@ -770,7 +812,7 @@ function stats(){
   const lifts=["Bench Press","Back Squat","Deadlift","Overhead Press","Weighted Pull-Ups","Assisted Pull-Ups","Assisted Dips","Dips","Barbell Row","Seated Chest Press"];
   const cards=lifts.map(name=>{
     const pts=state.history.map(h=>{
-      const l=h.logs.find(x=>x.name===name && x.sets.length);
+      const l=(h.logs||[]).find(x=>x.name===name && (x.sets||[]).length);
       const m=l?bestPerformanceMetric(l):null;
       return m?{t:h.end,v:m.value,type:m.type,label:m.label}:null;
     }).filter(Boolean);
