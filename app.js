@@ -1,77 +1,94 @@
 
 const APP_RELEASE = "6.1";
 const DEFAULT_PROGRAM = [
-  {
-    id:"upper-a", name:"Upper A – Strength", day:"Mon",
-    exercises:[
-      ["Bench Press",4,5,8,180,"Chest",["Triceps","Front Delts"]],
-      ["Pull-Ups / Lat Pulldown",4,6,10,180,"Back",["Biceps"]],
-      ["Incline DB Press",3,8,10,120,"Chest",["Triceps","Front Delts"]],
-      ["Barbell Row",3,8,10,120,"Back",["Biceps"]],
-      ["Overhead Press",3,8,10,120,"Shoulders",["Triceps"]],
-      ["Lateral Raise",3,12,15,75,"Side Delts",[]],
-      ["Tricep Pushdown",2,10,15,75,"Triceps",[]],
-      ["Barbell Curl",2,10,12,90,"Biceps",[]]
-    ]
-  },
-  {
-    id:"lower-a", name:"Lower A", day:"Tue",
-    exercises:[
-      ["Back Squat",4,6,8,180,"Quads",["Glutes","Hamstrings"]],
-      ["Romanian Deadlift",4,8,10,180,"Hamstrings",["Glutes"]],
-      ["Leg Press",3,10,12,120,"Quads",["Glutes"]],
-      ["Leg Curl",3,10,15,90,"Hamstrings",[]],
-      ["Standing Calf Raise",4,12,20,75,"Calves",[]],
-      ["Hanging Leg Raise",3,10,15,60,"Core",[]]
-    ]
-  },
-  {
-    id:"v-taper", name:"V-Taper / Arms", day:"Wed",
-    exercises:[
-      ["Weighted Pull-Ups",3,6,10,180,"Back",["Biceps"]],
-      ["Single-Arm Lat Pulldown",3,8,12,120,"Back",["Biceps"]],
-      ["Cable Lateral Raise",4,12,20,75,"Side Delts",[]],
-      ["Rear Delt Fly",4,12,20,75,"Rear Delts",[]],
-      ["Incline DB Curl",3,8,12,90,"Biceps",[]],
-      ["Hammer Curl",3,10,12,90,"Biceps",[]],
-      ["Overhead Tricep Extension",3,10,15,90,"Triceps",[]],
-      ["Rope Pushdown",3,10,15,75,"Triceps",[]]
-    ]
-  },
-  {
-    id:"upper-b", name:"Upper B – Hypertrophy", day:"Fri",
-    exercises:[
-      ["Incline Bench Press",4,8,12,150,"Chest",["Triceps","Front Delts"]],
-      ["Chest Supported Row",4,8,12,150,"Back",["Biceps"]],
-      ["Machine Chest Press",3,10,15,120,"Chest",["Triceps"]],
-      ["Seated Cable Row",3,10,15,120,"Back",["Biceps"]],
-      ["DB Shoulder Press",3,8,12,120,"Shoulders",["Triceps"]],
-      ["Face Pull",3,12,20,75,"Rear Delts",["Back"]],
-      ["Pec Deck",2,12,15,75,"Chest",[]],
-      ["Cable Curl",2,10,15,75,"Biceps",[]],
-      ["Tricep Pushdown",2,10,15,75,"Triceps",[]]
-    ]
-  },
-  {
-    id:"lower-b", name:"Lower B", day:"Sat",
-    exercises:[
-      ["Deadlift",3,4,6,180,"Hamstrings",["Glutes","Back"]],
-      ["Front Squat",3,6,10,180,"Quads",["Glutes"]],
-      ["Bulgarian Split Squat",3,8,12,120,"Quads",["Glutes"]],
-      ["Seated Hamstring Curl",3,10,15,90,"Hamstrings",[]],
-      ["Leg Extension",3,12,15,75,"Quads",[]],
-      ["Seated Calf Raise",4,12,20,75,"Calves",[]],
-      ["Cable Crunch",3,10,15,60,"Core",[]]
-    ]
-  }
+  {id:"upper-a",name:"Upper A – Strength",day:"Mon",plannedMinutes:52,exercises:[
+    ["Bench Press",3,5,8,180,"Chest",["Triceps","Front Delts"]],
+    ["Lat Pulldown",3,6,10,150,"Back",["Biceps"]],
+    ["Incline DB Press",2,8,10,120,"Chest",["Triceps","Front Delts"]],
+    ["Chest Supported Row",2,8,10,120,"Back",["Biceps","Rear Delts"]],
+    ["Overhead Press",2,6,10,150,"Front Delts",["Triceps","Side Delts"]],
+    ["Lateral Raise",3,12,15,75,"Side Delts",[]],
+    ["Barbell Curl",2,8,12,75,"Biceps",[]],
+    ["Tricep Pushdown",2,10,15,75,"Triceps",[]]
+  ]},
+  {id:"lower-a",name:"Lower A – Strength",day:"Tue",plannedMinutes:50,exercises:[
+    ["Back Squat",3,5,8,180,"Quads",["Glutes","Hamstrings"]],
+    ["Romanian Deadlift",3,6,10,180,"Hamstrings",["Glutes"]],
+    ["Leg Press",2,10,12,120,"Quads",["Glutes"]],
+    ["Leg Curl",2,10,15,90,"Hamstrings",[]],
+    ["Standing Calf Raise",3,10,15,75,"Calves",[]],
+    ["Hanging Leg Raise",2,10,15,60,"Core",[]]
+  ]},
+  {id:"v-taper",name:"V-Taper / Arms",day:"Wed",plannedMinutes:48,exercises:[
+    ["Assisted Pull-Ups",3,6,10,150,"Back",["Biceps"]],
+    ["Single-Arm Lat Pulldown",2,8,12,105,"Back",["Biceps"]],
+    ["Cable Lateral Raise",3,12,20,75,"Side Delts",[]],
+    ["Rear Delt Fly",3,12,20,75,"Rear Delts",[]],
+    ["Incline DB Curl",2,8,12,75,"Biceps",[]],
+    ["Hammer Curl",2,10,12,75,"Biceps",[]],
+    ["Overhead Tricep Extension",2,10,15,75,"Triceps",[]],
+    ["Assisted Dips",2,6,10,120,"Chest",["Triceps","Front Delts"]]
+  ]},
+  {id:"upper-b",name:"Upper B – Hypertrophy",day:"Fri",plannedMinutes:50,exercises:[
+    ["Incline Bench Press",3,8,12,150,"Chest",["Triceps","Front Delts"]],
+    ["Seated Cable Row",3,8,12,120,"Back",["Biceps","Rear Delts"]],
+    ["Seated Chest Press",2,10,15,105,"Chest",["Triceps","Front Delts"]],
+    ["Lat Pulldown",2,10,15,105,"Back",["Biceps"]],
+    ["DB Shoulder Press",2,8,12,120,"Front Delts",["Triceps","Side Delts"]],
+    ["Face Pull",3,12,20,75,"Rear Delts",["Back"]],
+    ["Lateral Raise",2,12,20,75,"Side Delts",[]],
+    ["Cable Curl",2,10,15,75,"Biceps",[]]
+  ]},
+  {id:"lower-b",name:"Lower B – Hypertrophy",day:"Sat",plannedMinutes:50,exercises:[
+    ["Deadlift",2,4,6,180,"Hamstrings",["Glutes","Back"]],
+    ["Front Squat",3,6,10,150,"Quads",["Glutes"]],
+    ["Bulgarian Split Squat",2,8,12,120,"Quads",["Glutes"]],
+    ["Seated Hamstring Curl",3,10,15,90,"Hamstrings",[]],
+    ["Leg Extension",2,12,15,75,"Quads",[]],
+    ["Seated Calf Raise",3,12,20,75,"Calves",[]],
+    ["Cable Crunch",2,10,15,60,"Core",[]]
+  ]}
 ].map(w=>({...w,exercises:w.exercises.map((e,i)=>({
   id:w.id+"-"+i,name:e[0],sets:e[1],repMin:e[2],repMax:e[3],rest:e[4],primary:e[5],secondary:e[6]
 }))}));
 
 const TARGETS = {
-  Chest:[12,16], Back:[16,20], Shoulders:[10,14], "Side Delts":[8,12], "Rear Delts":[6,10],
-  Biceps:[8,12], Triceps:[8,12], Quads:[12,16], Hamstrings:[10,14], Glutes:[8,12], Calves:[6,10], Core:[6,10]
+  Chest:[10,14], Back:[12,18], "Front Delts":[6,10], "Side Delts":[8,12], "Rear Delts":[6,10],
+  Biceps:[8,12], Triceps:[8,12], Quads:[10,14], Hamstrings:[8,12], Glutes:[6,10], Calves:[6,10], Core:[4,8]
 };
+
+const MUSCLE_WEIGHTS = {
+  "Bench Press":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Incline Bench Press":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Incline DB Press":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Dumbbell Bench Press":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Smith Machine Bench Press":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Seated Chest Press":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Machine Chest Press":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Assisted Dips":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Dips":{"Chest":1,"Triceps":0.5,"Front Delts":0.5},
+  "Overhead Press":{"Front Delts":1,"Triceps":0.5,"Side Delts":0.5},
+  "DB Shoulder Press":{"Front Delts":1,"Triceps":0.5,"Side Delts":0.5},
+  "Barbell Row":{"Back":1,"Biceps":0.5,"Rear Delts":0.5},
+  "Chest Supported Row":{"Back":1,"Biceps":0.5,"Rear Delts":0.5},
+  "Seated Cable Row":{"Back":1,"Biceps":0.5,"Rear Delts":0.5},
+  "Face Pull":{"Rear Delts":1,"Back":0.5},
+  "Rear Delt Fly":{"Rear Delts":1},
+  "Lateral Raise":{"Side Delts":1},
+  "Cable Lateral Raise":{"Side Delts":1},
+  "Lat Pulldown":{"Back":1,"Biceps":0.5},
+  "Weighted Pull-Ups":{"Back":1,"Biceps":0.5},
+  "Assisted Pull-Ups":{"Back":1,"Biceps":0.5},
+  "Single-Arm Lat Pulldown":{"Back":1,"Biceps":0.5}
+};
+function muscleCredits(log,workingCount){
+  const explicit=MUSCLE_WEIGHTS[log.name];
+  if(explicit) return Object.fromEntries(Object.entries(explicit).map(([m,w])=>[m,workingCount*w]));
+  const out={}; if(log.primary) out[log.primary]=workingCount;
+  (log.secondary||[]).forEach(m=>out[m]=(out[m]||0)+workingCount*0.5);
+  return out;
+}
+
 
 const EXERCISE_LIBRARY = [
   {name:"Bench Press",primary:"Chest",secondary:["Triceps","Front Delts"],type:"Compound",equipment:"Barbell",rest:180,repMin:5,repMax:8},
@@ -129,13 +146,167 @@ let state = JSON.parse(localStorage.getItem("gymState") || "null") || {
   selectedProgram:"upper-a",
   customExercises:[],
   exercisePrefs:{},
-  appVersion:6
+  checkins:[],
+  macroTargets:{protein:190,carbs:250,fat:80},
+  appVersion:7
 };
 if(!state.customExercises) state.customExercises=[];
 if(!state.exercisePrefs) state.exercisePrefs={};
-if(!state.appVersion || state.appVersion<6) state.appVersion=6;
+if(!state.checkins) state.checkins=[];
+if(!state.macroTargets) state.macroTargets={protein:190,carbs:250,fat:80};
+if(!state.appVersion || state.appVersion<7){
+  state.program=DEFAULT_PROGRAM;
+  state.appVersion=7;
+}
 
 function save(){ localStorage.setItem("gymState",JSON.stringify(state)); }
+
+function isoDate(d=new Date()){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function greeting(){
+  const h=new Date().getHours();
+  return h<12?"Good morning":h<17?"Good afternoon":"Good evening";
+}
+function todayCheckin(){
+  return state.checkins.find(x=>x.date===isoDate())||{date:isoDate(),weight:null,protein:null,carbs:null,fat:null};
+}
+function upsertCheckin(values){
+  const d=isoDate(); let c=state.checkins.find(x=>x.date===d);
+  if(!c){c={date:d,weight:null,protein:null,carbs:null,fat:null};state.checkins.push(c);}
+  Object.assign(c,values); save();
+}
+function macroCalories(c){return Math.round((Number(c.protein)||0)*4+(Number(c.carbs)||0)*4+(Number(c.fat)||0)*9);}
+function last7Checkins(){
+  const out=[]; for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const key=isoDate(d);out.push(state.checkins.find(x=>x.date===key)||{date:key,protein:null,carbs:null,fat:null,weight:null});}
+  return out;
+}
+function avg(arr,key){
+  const vals=arr.map(x=>Number(x[key])).filter(v=>Number.isFinite(v)&&v>0);
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+}
+function roundToIncrement(v,inc){return Math.round(v/inc)*inc;}
+function loadIncrement(name){
+  const n=name.toLowerCase();
+  if(n.includes("leg press")||n.includes("deadlift")||n.includes("squat")) return 5;
+  if(n.includes("machine")||n.includes("seated chest press")) return 5;
+  if(n.includes("dumbbell")||n.includes("db ")) return 2;
+  return 2.5;
+}
+function suggestedDelta(rir,name){
+  if(rir==null||!Number.isFinite(Number(rir))) return 0;
+  rir=Number(rir); const inc=loadIncrement(name);
+  if(rir>=5) return Math.max(inc*2,name.toLowerCase().includes("leg press")?10:5);
+  if(rir===4) return Math.max(inc,5);
+  if(rir===3) return 2.5;
+  return 0;
+}
+function nextSetSuggestion(ex,log){
+  const working=(log.sets||[]).filter(s=>s.setType!=="warmup"); if(!working.length)return null;
+  const s=working[working.length-1],rir=s.rir==null?null:Number(s.rir);
+  if(s.assistWeight!=null){
+    let next=Number(s.assistWeight);
+    if(rir>=5)next=Math.max(0,next-5); else if(rir===4)next=Math.max(0,next-5); else if(rir===3)next=Math.max(0,next-2.5); else if(rir===0&&s.reps<ex.repMin)next+=2.5;
+    return {mode:"assist",value:roundToIncrement(next,2.5),reason:rir>=3?`${rir} RIR — reduce assistance`:(rir===0&&s.reps<ex.repMin?"Below rep target — add assistance":"Keep assistance")};
+  }
+  if(s.addedWeight!=null){
+    let next=Number(s.addedWeight); const d=suggestedDelta(rir,ex.name);
+    if(rir>=3)next+=d; else if(rir===0&&s.reps<ex.repMin)next=Math.max(0,next-2.5);
+    return {mode:"added",value:roundToIncrement(next,2.5),reason:rir>=3?`${rir} RIR — increase added load`:(rir===0&&s.reps<ex.repMin?"Below rep target — reduce load":"Keep load")};
+  }
+  if(s.weight!=null){
+    let next=Number(s.weight); const d=suggestedDelta(rir,ex.name);
+    if(rir>=3)next+=d; else if(rir===0&&s.reps<ex.repMin)next=Math.max(0,next-loadIncrement(ex.name)); else if(s.reps>=ex.repMax&&rir>=2)next+=loadIncrement(ex.name);
+    const reason=rir>=5?`${rir} RIR — load was very comfortable`:rir===4?"4 RIR — increase load":rir===3?"3 RIR — small increase":(s.reps>=ex.repMax&&rir>=2?"Top of rep range — increase":(rir===0&&s.reps<ex.repMin?"Below rep target at 0 RIR — reduce":"Keep current load"));
+    return {mode:"weight",value:roundToIncrement(next,loadIncrement(ex.name)),reason};
+  }
+  return null;
+}
+function sessionStartSuggestion(name){
+  for(let i=state.history.length-1;i>=0;i--){
+    const l=(state.history[i].logs||[]).find(x=>x.name===name); if(!l)continue;
+    const working=(l.sets||[]).filter(s=>s.setType!=="warmup"); if(!working.length)continue;
+    const ex=fullExerciseLibrary().find(x=>x.name===name)||{name,repMin:6,repMax:12};
+    return {lastLog:l,suggestion:nextSetSuggestion(ex,{sets:working})};
+  }
+  return null;
+}
+
+function checkinForDate(date){
+  return state.checkins.find(x=>x.date===date)||{date,weight:null,protein:null,carbs:null,fat:null};
+}
+function saveCheckinForDate(date){
+  const values={
+    weight:qs("#dateWeight")?.value===""?null:Number(qs("#dateWeight")?.value),
+    protein:qs("#dateProtein")?.value===""?null:Number(qs("#dateProtein")?.value),
+    carbs:qs("#dateCarbs")?.value===""?null:Number(qs("#dateCarbs")?.value),
+    fat:qs("#dateFat")?.value===""?null:Number(qs("#dateFat")?.value)
+  };
+  let c=state.checkins.find(x=>x.date===date);
+  if(!c){c={date,weight:null,protein:null,carbs:null,fat:null};state.checkins.push(c);}
+  Object.assign(c,values);save();toast(`Saved ${date}`);openCalendarDate(date);
+}
+function workoutsForDate(date){
+  return state.history.filter(h=>isoDate(new Date(h.end||h.start))===date);
+}
+function openCalendarDate(date){
+  const c=checkinForDate(date),workouts=workoutsForDate(date);
+  const pretty=new Date(date+"T12:00:00").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  document.getElementById("app").innerHTML=shell(pretty,"Training diary",
+    `<section class="card">
+      <div class="between"><h3>Check-in</h3><span class="badge">${macroCalories(c)} kcal</span></div>
+      <div class="input-grid">
+        <div class="field"><label>Bodyweight kg</label><input id="dateWeight" type="number" step="0.1" value="${c.weight??""}"></div>
+        <div class="field"><label>Protein g</label><input id="dateProtein" type="number" step="1" value="${c.protein??""}"></div>
+        <div class="field"><label>Carbs g</label><input id="dateCarbs" type="number" step="1" value="${c.carbs??""}"></div>
+        <div class="field"><label>Fat g</label><input id="dateFat" type="number" step="1" value="${c.fat??""}"></div>
+      </div>
+      <button class="primary" onclick="saveCheckinForDate('${date}')">SAVE CHECK-IN</button>
+    </section>
+    <section class="card">
+      <div class="between"><h3>Workouts</h3><span class="badge">${workouts.length}</span></div>
+      ${workouts.length?workouts.map(h=>`<div class="workout-row between"><div><strong>${h.name}</strong><div class="small">${(h.logs||[]).reduce((a,l)=>a+(l.sets||[]).filter(s=>s.setType!=="warmup").length,0)} working sets</div></div><button class="secondary" onclick="state.lastCompleted='${h.id}';save();go('summary')">View</button></div>`).join(""):`<div class="empty">No workout recorded for this date.</div>`}
+      <button class="primary" onclick="chooseBackdatedWorkout('${date}')">ADD WORKOUT TO THIS DATE</button>
+    </section>
+    <button class="secondary" style="width:100%" onclick="go('home')">Back to Home</button>`,
+  "home");
+}
+function chooseBackdatedWorkout(date){
+  document.getElementById("app").innerHTML=shell("Add Workout",date,
+    `<section class="card">
+      ${state.program.map(w=>`<div class="workout-row between"><div><strong>${w.name}</strong><div class="small">${w.exercises.length} exercises</div></div><button class="secondary" onclick="createBackdatedWorkout('${date}','${w.id}')">Use</button></div>`).join("")}
+      <button class="secondary" style="width:100%;margin-top:10px" onclick="createBackdatedCustomWorkout('${date}')">Blank custom workout</button>
+    </section>
+    <button class="primary" onclick="openCalendarDate('${date}')">Back</button>`,
+  "home");
+}
+function createBackdatedWorkout(date,workoutId){
+  const w=workoutById(workoutId);if(!w)return;
+  const exercises=w.exercises.map(e=>({...e,plannedName:e.name,skipped:false}));
+  state.current={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),workoutId,name:w.name,start:new Date(date+"T18:00:00").getTime(),exerciseIndex:0,restUntil:null,backdatedDate:date,backdated:true,exercises,logs:exercises.map(e=>({exerciseId:e.id,name:e.name,plannedName:e.name,primary:e.primary,secondary:e.secondary,rest:exerciseRest(e),sets:[],skipped:false,wasSwapped:false,notes:exerciseNotes(e.name)}))};
+  save();go("live");
+}
+function createBackdatedCustomWorkout(date){
+  state.backdatedCustomDate=date;
+  startBlankCustom();
+}
+function monthCalendarHTML(){
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0);
+  const completed=new Map(); state.history.forEach(h=>{const d=new Date(h.end||h.start);if(d.getFullYear()===y&&d.getMonth()===m)completed.set(d.getDate(),h.id);});
+  const mondayIndex=(first.getDay()+6)%7,cells=[]; for(let i=0;i<mondayIndex;i++)cells.push("<div></div>");
+  for(let day=1;day<=last.getDate();day++){const isToday=day===now.getDate(),id=completed.get(day),cls=`cal-day ${id?"trained":""} ${isToday?"today":""}`,date=`${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;cells.push(`<button class="${cls}" onclick="openCalendarDate('${date}')">${day}</button>`);}
+  return `<div class="between"><h3>${now.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</h3><span class="badge">${completed.size} sessions</span></div><div class="cal-head">${["M","T","W","T","F","S","S"].map(x=>`<span>${x}</span>`).join("")}</div><div class="calendar-grid">${cells.join("")}</div>`;
+}
+function startOfTrainingWeek(){
+  const d=new Date(),day=(d.getDay()+6)%7;
+  d.setHours(0,0,0,0); d.setDate(d.getDate()-day);
+  return d.getTime();
+}
+function weeklyGapRows(){
+  const totals=weeklyMuscleTotals();
+  return Object.entries(TARGETS).map(([name,t])=>{const n=totals[name]||0,min=t[0],short=Math.max(0,min-n);return {name,n,min,max:t[1],short,pct:Math.min(100,n/min*100)};}).sort((a,b)=>b.short-a.short);
+}
 function qs(sel){return document.querySelector(sel)}
 function fmtSec(s){ const m=Math.floor(s/60), sec=s%60; return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`; }
 function e1rm(w,r){ if(!(w>0) || !(r>0)) return 0; return +(w*(1+r/30)).toFixed(1); }
@@ -178,11 +349,14 @@ function lastCompletedWorkoutId(){
   return lastCompletedWorkout()?.workoutId || null;
 }
 function recommendedWorkoutId(){
-  if(!state.history.length) return state.program[0]?.id || null;
   const order=workoutOrder();
-  const lastId=lastCompletedWorkoutId();
+  if(!state.history.length) return state.program[0]?.id || null;
+  let lastId=null;
+  for(let i=state.history.length-1;i>=0;i--){
+    if(order.includes(state.history[i].workoutId)){lastId=state.history[i].workoutId;break;}
+  }
+  if(!lastId) return state.program[0]?.id || null;
   const idx=order.indexOf(lastId);
-  if(idx===-1) return state.program[0]?.id || null;
   return order[(idx+1)%order.length];
 }
 function recentMuscleDays(){
@@ -234,39 +408,88 @@ function shell(title,subtitle,body,active="home"){
 }
 
 function home(){
-  const recId=recommendedWorkoutId();
-  const recommended=workoutById(recId) || state.program[0];
-  const selected = workoutById(state.selectedProgram) || recommended;
-  const completedThisWeek = state.history.slice(-30).filter(h=>Date.now()-h.end<7*86400000);
-  const recent=lastCompletedWorkout();
-  const weekSets=completedThisWeek.reduce((a,h)=>a+h.logs.reduce((x,l)=>x+l.sets.length,0),0);
-  const isOverride=selected.id!==recommended.id;
-  return shell("Gym Tracker",todayLabel(),
+  const recId=recommendedWorkoutId(),recommended=workoutById(recId)||state.program[0],selected=workoutById(state.selectedProgram)||recommended;
+  const completedThisWeek=state.history.slice(-30).filter(h=>(h.end||0)>=startOfTrainingWeek()),recent=lastCompletedWorkout();
+  const weekSets=completedThisWeek.reduce((a,h)=>a+(h.logs||[]).reduce((x,l)=>x+(l.sets||[]).filter(s=>s.setType!=="warmup").length,0),0);
+  const isOverride=selected.id!==recommended.id,c=todayCheckin(),t=state.macroTargets,gaps=weeklyGapRows(),biggest=gaps.filter(x=>x.short>0).slice(0,3),kcalTarget=Math.round(t.protein*4+t.carbs*4+t.fat*9);
+  return shell(`${greeting()}, Michael`,todayLabel(),
   `<section class="card hero">
-      <div class="hero-orb"></div>
-      <span class="tag">${isOverride?"SELECTED":"RECOMMENDED"}</span>
+      <div class="hero-orb"></div><span class="tag">${isOverride?"SELECTED":"RECOMMENDED"}</span>
       <div class="big">${selected.name}</div>
-      <div class="meta">${isOverride?"Manual choice":recommendationReason(recommended)} · ${selected.exercises.length} exercises · ${totalSets(selected)} planned sets</div>
+      <div class="meta">${isOverride?"Manual choice":recommendationReason(recommended)} · ${selected.exercises.length} exercises · ${totalSets(selected)} planned sets · ~${selected.plannedMinutes||50} min incl. warm-up</div>
       <button class="primary" onclick="startWorkout('${selected.id}')">START ${selected.name.toUpperCase()}</button>
       ${isOverride?`<button class="secondary" style="width:100%;margin-top:8px" onclick="state.selectedProgram='${recommended.id}';save();render()">Use recommended: ${recommended.name}</button>`:""}
     </section>
-    <section class="metric-grid" style="margin-bottom:14px">
-      <div class="metric"><strong>${completedThisWeek.length}</strong><span>Workouts last 7 days</span></div>
-      <div class="metric"><strong>${weekSets}</strong><span>Working sets logged</span></div>
+    <section class="card">${monthCalendarHTML()}</section>
+    <section class="card">
+      <div class="between"><h3>Today's check-in</h3><span class="badge">${macroCalories(c)} / ${kcalTarget} kcal</span></div>
+      <div class="input-grid">
+        <div class="field"><label>Bodyweight kg</label><input id="dailyWeight" type="number" step="0.1" value="${c.weight??""}" placeholder="e.g. 89.8"></div>
+        <div class="field"><label>Protein g</label><input id="dailyProtein" type="number" step="1" value="${c.protein??""}" placeholder="${t.protein}"></div>
+        <div class="field"><label>Carbs g</label><input id="dailyCarbs" type="number" step="1" value="${c.carbs??""}" placeholder="${t.carbs}"></div>
+        <div class="field"><label>Fat g</label><input id="dailyFat" type="number" step="1" value="${c.fat??""}" placeholder="${t.fat}"></div>
+      </div>
+      <div style="margin-top:12px">${macroBar("Protein",c.protein,t.protein)}${macroBar("Carbs",c.carbs,t.carbs)}${macroBar("Fat",c.fat,t.fat)}</div>
+      <button class="primary" onclick="saveCheckin()">SAVE TODAY</button>
     </section>
-    ${recent?`<section class="card">
-      <div class="between"><div><div class="section-kicker">Last session</div><h3 style="margin:0">${recent.name}</h3></div><button class="secondary" onclick="state.lastCompleted='${recent.id}';save();go('summary')">View</button></div>
-      <div class="small" style="margin-top:6px">${new Date(recent.end).toLocaleDateString()} · ${recent.logs.reduce((a,l)=>a+l.sets.length,0)} sets completed</div>
-    </section>`:""}
+    <section class="card">
+      <div class="between"><h3>Weekly training balance</h3><span class="badge">${weekSets} working sets</span></div>
+      ${gaps.map(g=>`<div class="muscle-row"><strong>${g.name}</strong><div class="progress"><span style="width:${g.pct}%"></span></div><span class="${g.short>0?"warn":"good"} small">${g.short>0?`${g.short.toFixed(g.short%1?1:0)} short`:"Target ✓"}</span></div>`).join("")}
+      ${biggest.length?`<div class="notice" style="margin-top:12px"><strong>Biggest gaps:</strong> ${biggest.map(x=>`${x.name} ${x.short.toFixed(x.short%1?1:0)} sets`).join(" · ")}</div><button class="primary" onclick="buildTopUp()">BUILD TOP-UP WORKOUT</button>`:`<div class="notice" style="margin-top:12px">All minimum weekly set targets reached.</div>`}
+      <button class="secondary" style="width:100%;margin-top:8px" onclick="startBlankCustom()">CREATE BLANK CUSTOM WORKOUT</button>
+    </section>
+    ${recent?`<section class="card"><div class="between"><div><div class="section-kicker">Last session</div><h3 style="margin:0">${recent.name}</h3></div><button class="secondary" onclick="state.lastCompleted='${recent.id}';save();go('summary')">View</button></div><div class="small" style="margin-top:6px">${new Date(recent.end).toLocaleDateString()} · ${(recent.logs||[]).reduce((a,l)=>a+(l.sets||[]).filter(s=>s.setType!=="warmup").length,0)} working sets</div></section>`:""}
     <section class="card">
       <div class="between"><h3>Choose today's workout</h3><span class="badge">Flexible plan</span></div>
-      <div class="small" style="margin-bottom:6px">The plan rolls forward from the last workout you actually completed. Missed days are simply skipped. You can override the recommendation anytime.</div>
-      ${state.program.map(w=>`<div class="workout-row between">
-        <div class="row"><div class="day">${w.day[0]}</div><div><strong>${w.name}</strong><div class="small">${w.id===recommended.id?"Recommended next · ":""}${totalSets(w)} planned sets</div></div></div>
-        <button class="secondary" onclick="state.selectedProgram='${w.id}';save();render()">${w.id===selected.id?"Selected":"Choose"}</button>
-      </div>`).join("")}
+      ${state.program.map(w=>`<div class="workout-row between"><div class="row"><div class="day">${w.day[0]}</div><div><strong>${w.name}</strong><div class="small">${w.id===recommended.id?"Recommended next · ":""}${totalSets(w)} sets · ~${w.plannedMinutes||50} min</div></div></div><button class="secondary" onclick="state.selectedProgram='${w.id}';save();render()">${w.id===selected.id?"Selected":"Choose"}</button></div>`).join("")}
     </section>`,
   "home");
+}
+function macroBar(label,value,target){
+  const v=Number(value)||0,pct=Math.min(100,v/target*100);
+  return `<div style="margin:9px 0"><div class="between"><span class="small">${label}</span><span class="small">${v||0} / ${target} g</span></div><div class="progress"><span style="width:${pct}%"></span></div></div>`;
+}
+function saveCheckin(){
+  upsertCheckin({weight:qs("#dailyWeight").value===""?null:Number(qs("#dailyWeight").value),protein:qs("#dailyProtein").value===""?null:Number(qs("#dailyProtein").value),carbs:qs("#dailyCarbs").value===""?null:Number(qs("#dailyCarbs").value),fat:qs("#dailyFat").value===""?null:Number(qs("#dailyFat").value)});
+  toast("Today's check-in saved");render();
+}
+
+
+function suggestedExerciseForMuscle(muscle){
+  const p={"Rear Delts":["Rear Delt Fly","Face Pull"],"Side Delts":["Cable Lateral Raise","Lateral Raise"],"Front Delts":["DB Shoulder Press","Overhead Press"],"Chest":["Seated Chest Press","Incline DB Press"],"Back":["Lat Pulldown","Seated Cable Row"],"Biceps":["Cable Curl","Hammer Curl"],"Triceps":["Tricep Pushdown","Overhead Tricep Extension"],"Quads":["Leg Extension","Leg Press"],"Hamstrings":["Leg Curl","Seated Hamstring Curl"],"Glutes":["Bulgarian Split Squat","Romanian Deadlift"],"Calves":["Standing Calf Raise","Seated Calf Raise"],"Core":["Cable Crunch","Hanging Leg Raise"]};
+  return (p[muscle]||[]).map(n=>fullExerciseLibrary().find(x=>x.name===n)).filter(Boolean);
+}
+function makeSessionExercise(item,sets=3){
+  return {id:"custom-"+Date.now()+"-"+Math.random().toString(36).slice(2,7),name:item.name,plannedName:item.name,sets,repMin:item.repMin||8,repMax:item.repMax||12,rest:exerciseRest(item),primary:item.primary,secondary:item.secondary||[],equipment:item.equipment||"Other",type:item.type||"Custom",skipped:false};
+}
+function launchCustom(name,exercises){
+  state.current={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),workoutId:"custom",name,start:Date.now(),exerciseIndex:0,restUntil:null,exercises,logs:exercises.map(e=>({exerciseId:e.id,name:e.name,plannedName:e.name,primary:e.primary,secondary:e.secondary,rest:e.rest,sets:[],skipped:false,wasSwapped:false,notes:exerciseNotes(e.name)}))};
+  save();go("live");
+}
+function buildTopUp(){
+  const gaps=weeklyGapRows().filter(x=>x.short>0).slice(0,3);if(!gaps.length){toast("No weekly gaps to top up");return}
+  const exercises=[];gaps.forEach(g=>{const c=suggestedExerciseForMuscle(g.name);if(c.length)exercises.push(makeSessionExercise(c[0],Math.min(4,Math.max(1,Math.ceil(g.short)))));});
+  launchCustom("Weekly Top-Up",exercises);
+}
+function startBlankCustom(){
+  window.__blankCustom=[]; if(!state.backdatedCustomDate) state.backdatedCustomDate=null;
+  document.getElementById("app").innerHTML=shell("Custom Workout","Choose exercises",
+    `<section class="card"><div class="notice" style="margin-bottom:12px">Pick exercises from the library. Use your weekly set balance to guide what you need most.</div>${fullExerciseLibrary().map(x=>`<div class="workout-row between"><div><strong>${x.name}</strong><div class="small">${x.primary} · ${x.equipment||""}</div></div><button class="secondary" onclick='addToBlankCustom(${JSON.stringify(x.name)})'>Add</button></div>`).join("")}</section>
+     <section class="card"><h3>Selected</h3><div id="customSelected" class="small">No exercises selected yet.</div><button class="primary" onclick="launchBlankCustom()">START CUSTOM WORKOUT</button></section>`,"home");
+}
+function addToBlankCustom(name){
+  const item=fullExerciseLibrary().find(x=>x.name===name);if(!item)return;window.__blankCustom.push(makeSessionExercise(item,3));
+  const el=document.getElementById("customSelected");if(el)el.innerHTML=window.__blankCustom.map((x,i)=>`${i+1}. ${x.name} · ${x.sets} sets`).join("<br>");
+}
+function launchBlankCustom(){
+  if(!window.__blankCustom?.length){toast("Add at least one exercise");return}
+  if(state.backdatedCustomDate){
+    const date=state.backdatedCustomDate,exercises=window.__blankCustom;
+    state.current={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),workoutId:"custom",name:"Custom Workout",start:new Date(date+"T18:00:00").getTime(),exerciseIndex:0,restUntil:null,backdatedDate:date,backdated:true,exercises,logs:exercises.map(e=>({exerciseId:e.id,name:e.name,plannedName:e.name,primary:e.primary,secondary:e.secondary,rest:e.rest,sets:[],skipped:false,wasSwapped:false,notes:exerciseNotes(e.name)}))};
+    state.backdatedCustomDate=null;save();go("live");
+  }else{
+    launchCustom("Custom Workout",window.__blankCustom);
+  }
 }
 function startWorkout(id){
   const w = state.program.find(x=>x.id===id);
@@ -285,7 +508,7 @@ function startWorkout(id){
 
 function live(){
   if(!state.current) return home();
-  const sessionExercises = state.current.exercises || state.program.find(x=>x.id===state.current.workoutId).exercises;
+  const sessionExercises = state.current.exercises || (state.program.find(x=>x.id===state.current.workoutId)?.exercises||[]);
   const ex=sessionExercises[state.current.exerciseIndex];
   const log=state.current.logs[state.current.exerciseIndex];
   if(!ex) { finishWorkout(); return ""; }
@@ -294,13 +517,15 @@ function live(){
   if(state.current.restUntil && state.current.restUntil>Date.now()) return restScreen();
 
   const prev = lastExerciseSession(ex.name);
+  const startInfo=sessionStartSuggestion(ex.name);
+  const nextSug=nextSetSuggestion(ex,log);
   const setNo = log.sets.length+1;
   const prevSet = prev?.sets?.[Math.min(setNo-1,(prev.sets||[]).length-1)];
-  const defaultWeight = prevSet?.weight ?? "";
+  const defaultWeight = nextSug?.mode==="weight"?nextSug.value:(setNo===1&&startInfo?.suggestion?.mode==="weight"?startInfo.suggestion.value:(prevSet?.weight ?? ""));
   const defaultReps = prevSet?.reps ?? "";
-  const defaultRir = prevSet?.rir ?? "";
-  const defaultAssist = prevSet?.assistWeight ?? "";
-  const defaultAdded = prevSet?.addedWeight ?? "";
+  const defaultRir = "";
+  const defaultAssist = nextSug?.mode==="assist"?nextSug.value:(setNo===1&&startInfo?.suggestion?.mode==="assist"?startInfo.suggestion.value:(prevSet?.assistWeight ?? ""));
+  const defaultAdded = nextSug?.mode==="added"?nextSug.value:(setNo===1&&startInfo?.suggestion?.mode==="added"?startInfo.suggestion.value:(prevSet?.addedWeight ?? ""));
 
   const assisted=assistModeFor(ex.name);
 
@@ -315,7 +540,9 @@ function live(){
       </div>
       ${log.wasSwapped?`<div class="badge" style="margin-top:10px">Swapped from ${log.plannedName}</div>`:""}
       <div class="meta">Target ${ex.repMin}–${ex.repMax} reps · ${Math.floor(ex.rest/60)}:${String(ex.rest%60).padStart(2,"0")} rest · ${ex.primary}</div>
-      ${prev?`<div class="card" style="margin-top:14px"><div class="small">Previous ${ex.name}</div><strong>${prev.sets.map(s=>formatSet(s,ex.name)).join(" · ")}</strong></div>`:""}
+      ${state.current.backdated?`<div class="notice" style="margin-top:10px">Backdated workout for ${state.current.backdatedDate}. This session will save to that historical date.</div>`:""}
+      ${prev?`<div class="card" style="margin-top:14px"><div class="small">Previous ${ex.name}</div><strong>${prev.sets.filter(s=>s.setType!=="warmup").map(s=>formatSet(s,ex.name)).join(" · ")}</strong></div>`:""}
+      ${(nextSug||startInfo?.suggestion)?`<div class="notice" style="margin-top:10px"><strong>Suggested load:</strong> ${formatSuggestion(nextSug||startInfo.suggestion)}<br><span class="small">${(nextSug||startInfo.suggestion).reason||"Based on your last logged performance"}</span></div>`:""}
       ${assisted?`
         <div class="tabs" style="margin-top:14px">
           <button class="${log.loadMode!=="added"?"active":""}" onclick="setLoadMode('assisted')">Assisted</button>
@@ -371,6 +598,13 @@ function live(){
 function setLoadMode(mode){
   state.current.logs[state.current.exerciseIndex].loadMode=mode;
   save();render();
+}
+
+function formatSuggestion(s){
+  if(!s)return "—";
+  if(s.mode==="assist")return `${s.value} kg assistance`;
+  if(s.mode==="added")return `${s.value>0?"+":""}${s.value} kg added`;
+  return `${s.value} kg`;
 }
 
 function formatSet(s,name){
@@ -515,7 +749,7 @@ function moveExercise(direction){
 }
 
 function completeSet(){
-  const exercises=state.current.exercises || state.program.find(x=>x.id===state.current.workoutId).exercises;
+  const exercises=state.current.exercises || (state.program.find(x=>x.id===state.current.workoutId)?.exercises||[]);
   const ex=exercises[state.current.exerciseIndex];
   const log=state.current.logs[state.current.exerciseIndex];
   const reps=parseInt(qs("#reps")?.value);
@@ -566,7 +800,7 @@ function completeSet(){
 }
 function restScreen(){
   const idx=state.current.exerciseIndex;
-  const exercises=state.current.exercises || state.program.find(x=>x.id===state.current.workoutId).exercises;
+  const exercises=state.current.exercises || (state.program.find(x=>x.id===state.current.workoutId)?.exercises||[]);
   const ex=exercises[idx];
   const remaining=Math.max(0,Math.ceil((state.current.restUntil-Date.now())/1000));
   const total = state.current.logs[Math.max(0,idx-(state.current.logs[idx].sets.length?0:1))]?.rest || ex.rest;
@@ -592,12 +826,14 @@ function cancelWorkout(){ if(confirm("Cancel this workout?")){state.current=null
 
 function finishWorkout(){
   const c=state.current;
-  c.end=Date.now();
+  c.end=(c.backdated&&c.backdatedDate)?new Date(c.backdatedDate+"T19:00:00").getTime():Date.now();
   state.history.push(c);
   state.current=null;
   state.lastCompleted=c.id;
-  const nextId=recommendedWorkoutId();
-  if(nextId) state.selectedProgram=nextId;
+  if(!c.backdated){
+    const nextId=recommendedWorkoutId();
+    if(nextId) state.selectedProgram=nextId;
+  }
   save();
   go("summary");
 }
@@ -684,29 +920,22 @@ function findPBs(h){
 }
 
 function analysis(){
-  const h=findHistory(state.lastCompleted) || state.history[state.history.length-1];
-  if(!h) return summary();
+  const h=findHistory(state.lastCompleted)||state.history[state.history.length-1]; if(!h)return summary();
   const muscle={};
-  h.logs.forEach(l=>{
-    if(l.skipped) return;
-    const n=l.sets.filter(s=>s.setType!=="warmup").length;
-    muscle[l.primary]=(muscle[l.primary]||0)+n;
-    (l.secondary||[]).forEach(m=>muscle[m]=(muscle[m]||0)+n*0.5);
+  (h.logs||[]).forEach(l=>{
+    if(l.skipped)return;
+    const n=(l.sets||[]).filter(s=>s.setType!=="warmup").length; if(!n)return;
+    const credits=muscleCredits(l,n); Object.entries(credits).forEach(([m,v])=>muscle[m]=(muscle[m]||0)+v);
   });
   const week=weeklyMuscleTotals();
   return shell("Workout Analysis",h.name,
-    `<section class="card"><h3>Muscle groups</h3>
-      ${Object.entries(muscle).sort((a,b)=>b[1]-a[1]).map(([m,n])=>{
-        const t=TARGETS[m]||[0,Math.max(1,Math.ceil(n))], current=week[m]||0, pct=Math.min(100,current/t[1]*100);
-        return `<div class="muscle-row"><strong>${m}</strong><div class="progress"><span style="width:${pct}%"></span></div><span class="small">${n.toFixed(n%1?1:0)} today</span></div>`
-      }).join("")}
+    `<section class="card"><h3>Effective muscle sets</h3>
+      <div class="small" style="margin-bottom:12px">Primary muscles count as full sets; meaningful secondary involvement receives fractional credit.</div>
+      ${Object.entries(muscle).sort((a,b)=>b[1]-a[1]).map(([m,n])=>{const t=TARGETS[m]||[0,Math.max(1,Math.ceil(n))],current=week[m]||0,pct=Math.min(100,current/Math.max(1,t[0])*100);return `<div class="muscle-row"><strong>${m}</strong><div class="progress"><span style="width:${pct}%"></span></div><span class="small">${n.toFixed(n%1?1:0)} today</span></div>`}).join("")}
     </section>
-    <section class="card"><h3>Exercise performance</h3>
-      ${h.logs.filter(x=>x.sets.length).map(l=>performanceLine(l,h)).join("")}
-    </section>`,
+    <section class="card"><h3>Exercise performance</h3>${(h.logs||[]).filter(x=>(x.sets||[]).length).map(l=>performanceLine(l,h)).join("")}</section>`,
   "stats");
 }
-
 function performanceLine(l,h){
   const metric=bestPerformanceMetric(l);
   if(!metric) return "";
@@ -779,72 +1008,56 @@ function lastExerciseSession(name){
 }
 
 function weeklyMuscleTotals(){
-  const cutoff=Date.now()-7*86400000, muscle={};
-  state.history.filter(h=>h.end>=cutoff).forEach(h=>h.logs.forEach(l=>{
-    const n=l.sets.filter(s=>s.setType!=="warmup").length;
-    muscle[l.primary]=(muscle[l.primary]||0)+n;
-    (l.secondary||[]).forEach(m=>muscle[m]=(muscle[m]||0)+n*0.5);
+  const cutoff=startOfTrainingWeek(),muscle={};
+  state.history.filter(h=>(h.end||0)>=cutoff).forEach(h=>(h.logs||[]).forEach(l=>{
+    const n=(l.sets||[]).filter(s=>s.setType!=="warmup").length; if(!n)return;
+    const credits=muscleCredits(l,n);
+    Object.entries(credits).forEach(([m,v])=>muscle[m]=(muscle[m]||0)+v);
   }));
   return muscle;
 }
-
-
-function sparklineSVG(points){
-  if(!points || !points.length) return "";
-  const vals=points.map(p=>p.v);
-  const min=Math.min(...vals), max=Math.max(...vals), range=Math.max(1,max-min);
-  const w=300,h=70,pad=6;
-  const coords=points.map((p,i)=>{
-    const x=pad+(i/(Math.max(1,points.length-1)))*(w-pad*2);
-    const y=h-pad-((p.v-min)/range)*(h-pad*2);
-    return [x,y];
-  });
-  const line=coords.map((c,i)=>(i?"L":"M")+c[0].toFixed(1)+","+c[1].toFixed(1)).join(" ");
-  const dots=coords.map(c=>`<circle cx="${c[0]}" cy="${c[1]}" r="2.8" fill="#caff3a"/>`).join("");
-  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#caff3a" stop-opacity=".22"/><stop offset="1" stop-color="#caff3a" stop-opacity="0"/></linearGradient></defs>
-    <path d="${line} L ${coords[coords.length-1][0]},${h} L ${coords[0][0]},${h} Z" fill="url(#g)"/>
-    <path d="${line}" fill="none" stroke="#caff3a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    ${dots}
-  </svg>`;
-}
 function stats(){
-  const lifts=["Bench Press","Back Squat","Deadlift","Overhead Press","Weighted Pull-Ups","Assisted Pull-Ups","Assisted Dips","Dips","Barbell Row","Seated Chest Press"];
+  const lifts=["Bench Press","Back Squat","Deadlift","Overhead Press","Assisted Pull-Ups","Weighted Pull-Ups","Assisted Dips","Dips","Barbell Row","Seated Chest Press"];
   const cards=lifts.map(name=>{
     const pts=state.history.map(h=>{
-      const l=(h.logs||[]).find(x=>x.name===name && (x.sets||[]).length);
-      const m=l?bestPerformanceMetric(l):null;
+      const l=(h.logs||[]).find(x=>x.name===name&&(x.sets||[]).length),m=l?bestPerformanceMetric(l):null;
       return m?{t:h.end,v:m.value,type:m.type,label:m.label}:null;
     }).filter(Boolean);
     if(!pts.length)return "";
-    const latest=pts[pts.length-1], first=pts[0];
-    let trendText="", trendClass="good";
-    if(latest.type==="assist"){
-      const d=first.v-latest.v; trendClass=d>=0?"good":"bad";
-      trendText=`${d>=0?"↓":"↑"} ${Math.abs(d).toFixed(1)} kg assistance`;
-    }else if(latest.type==="added"){
-      const d=latest.v-first.v; trendClass=d>=0?"good":"bad";
-      trendText=`${d>=0?"↑":"↓"} ${Math.abs(d).toFixed(1)} kg added`;
-    }else{
-      const d=first.v?((latest.v-first.v)/first.v*100):0; trendClass=d>=0?"good":"bad";
-      trendText=`${d>=0?"↑":"↓"} ${Math.abs(d).toFixed(1)}%`;
-    }
-    return `<section class="card">
-      <div class="chart-title"><div><div class="section-kicker">Strength trend</div><h3 style="margin:0">${name}</h3></div>
-      <div class="pill-score"><strong>${latest.label}</strong></div></div>
-      <div class="chart">${sparklineSVG(pts)}<div class="${trendClass}" style="font-weight:800;font-size:12px">${trendText} from first log</div></div>
-    </section>`;
+    const latest=pts[pts.length-1],first=pts[0];let trendText="",trendClass="good";
+    if(latest.type==="assist"){const d=first.v-latest.v;trendClass=d>=0?"good":"bad";trendText=`${d>=0?"↓":"↑"} ${Math.abs(d).toFixed(1)} kg assistance`;}
+    else if(latest.type==="added"){const d=latest.v-first.v;trendClass=d>=0?"good":"bad";trendText=`${d>=0?"↑":"↓"} ${Math.abs(d).toFixed(1)} kg added`;}
+    else{const d=first.v?((latest.v-first.v)/first.v*100):0;trendClass=d>=0?"good":"bad";trendText=`${d>=0?"↑":"↓"} ${Math.abs(d).toFixed(1)}%`;}
+    return `<section class="card"><div class="chart-title"><div><div class="section-kicker">Strength trend</div><h3 style="margin:0">${name}</h3></div><div class="pill-score"><strong>${latest.label}</strong></div></div><div class="chart">${sparklineSVG(pts)}<div class="${trendClass}" style="font-weight:800;font-size:12px">${trendText} from first log</div></div></section>`;
   }).join("");
-  const m=weeklyMuscleTotals();
-  return shell("Progress","Strength & weekly training volume",
-    `${cards||`<section class="card empty">Log a few workouts to build strength charts.</section>`}
-     <section class="card"><div class="between"><h3>Weekly muscle volume</h3><span class="badge">Working sets only</span></div>
-      ${Object.entries(TARGETS).map(([name,t])=>{
-        const n=m[name]||0,p=Math.min(100,n/t[1]*100);
-        return `<div class="muscle-row"><strong>${name}</strong><div class="progress"><span style="width:${p}%"></span></div><span class="small">${n.toFixed(n%1?1:0)} / ${t[1]}</span></div>`
-      }).join("")}
-     </section>`,
+  const m=weeklyMuscleTotals(),week=last7Checkins(),t=state.macroTargets;
+  const proteinAvg=avg(week,"protein"),carbAvg=avg(week,"carbs"),fatAvg=avg(week,"fat"),wtAvg=avg(week,"weight");
+  return shell("Progress","Strength, volume, bodyweight & nutrition",
+    `<section class="card">
+      <div class="between"><h3>7-day nutrition</h3><button class="secondary" onclick="editMacroTargets()">Targets</button></div>
+      <div class="metric-grid">
+        <div class="metric"><strong>${proteinAvg?proteinAvg.toFixed(0):"—"}g</strong><span>Protein avg / ${t.protein}g</span></div>
+        <div class="metric"><strong>${carbAvg?carbAvg.toFixed(0):"—"}g</strong><span>Carbs avg / ${t.carbs}g</span></div>
+        <div class="metric"><strong>${fatAvg?fatAvg.toFixed(0):"—"}g</strong><span>Fat avg / ${t.fat}g</span></div>
+        <div class="metric"><strong>${wtAvg?wtAvg.toFixed(1):"—"}kg</strong><span>7-day weight average</span></div>
+      </div>
+      <div style="margin-top:16px">${nutritionWeekHTML(week,t)}</div>
+    </section>
+    ${cards||`<section class="card empty">Log a few workouts to build strength charts.</section>`}
+    <section class="card"><div class="between"><h3>Weekly muscle volume</h3><span class="badge">Effective sets</span></div>
+      ${Object.entries(TARGETS).map(([name,tg])=>{const n=m[name]||0,p=Math.min(100,n/tg[0]*100);return `<div class="muscle-row"><strong>${name}</strong><div class="progress"><span style="width:${p}%"></span></div><span class="small">${n.toFixed(n%1?1:0)} / ${tg[0]} min</span></div>`}).join("")}
+    </section>`,
   "stats");
+}
+function nutritionWeekHTML(week,t){
+  const rows=[["Protein","protein",t.protein],["Carbs","carbs",t.carbs],["Fat","fat",t.fat]];
+  return rows.map(([label,key,target])=>`<div style="margin:14px 0"><div class="between"><strong>${label}</strong><span class="small">Target ${target}g</span></div><div class="week-bars">${week.map(c=>{const d=new Date(c.date+"T12:00:00"),day=d.toLocaleDateString(undefined,{weekday:"narrow"}),v=Number(c[key])||0,pct=Math.min(120,v/target*100);return `<div class="week-bar"><div class="week-bar-fill" style="height:${Math.max(4,pct)}%"></div><span>${day}</span><small>${v||"—"}</small></div>`}).join("")}</div></div>`).join("");
+}
+function editMacroTargets(){
+  const p=parseInt(prompt("Protein target (g):",state.macroTargets.protein));if(!(p>0))return;
+  const c=parseInt(prompt("Carb target (g):",state.macroTargets.carbs));if(!(c>0))return;
+  const f=parseInt(prompt("Fat target (g):",state.macroTargets.fat));if(!(f>0))return;
+  state.macroTargets={protein:p,carbs:c,fat:f};save();render();
 }
 function history(){
   return shell("History","Your completed training sessions",
@@ -867,6 +1080,10 @@ function program(){
       <div class="between"><div><strong>${w.day} · ${w.name}</strong><div class="small">${w.exercises.length} exercises · ${totalSets(w)} sets</div></div><button class="secondary" onclick="state.selectedProgram='${w.id}';save();go('home')">Use</button></div>
       <div style="margin-top:10px">${w.exercises.map(e=>`<div class="small" style="padding:4px 0">${e.name} · ${e.sets} × ${e.repMin}–${e.repMax} · ${e.rest}s rest</div>`).join("")}</div>
     </div>`).join("")}</section>
+    <section class="card">
+      <h3>60-minute session design</h3>
+      <div class="notice">The default programme is planned for roughly 48–52 minutes including an 8–10 minute warm-up and dynamic preparation. Keep rests near the defaults to stay within the hour.</div>
+    </section>
     <section class="card">
       <h3>Flexible schedule</h3>
       <div class="notice">The weekday labels are guides only. The app recommends the next workout in the rolling sequence based on the last workout you actually completed. Missed days are not recorded as failures, and you can choose any workout from Home whenever you want.</div>
@@ -934,6 +1151,11 @@ window.cancelWorkout=cancelWorkout; window.exportData=exportData; window.importD
 window.openExerciseMenu=openExerciseMenu; window.openAllExercises=openAllExercises; window.swapExercise=swapExercise;
 window.addExercise=addExercise; window.skipExercise=skipExercise; window.moveExercise=moveExercise;
 window.setLoadMode=setLoadMode; window.editSet=editSet; window.deleteSet=deleteSet; window.finishWorkoutEarly=finishWorkoutEarly; window.setDefaultRest=setDefaultRest;
+window.saveCheckin=saveCheckin;window.buildTopUp=buildTopUp;window.startBlankCustom=startBlankCustom;
+window.addToBlankCustom=addToBlankCustom;window.launchBlankCustom=launchBlankCustom;window.editMacroTargets=editMacroTargets;
+window.openCalendarDate=openCalendarDate;window.saveCheckinForDate=saveCheckinForDate;
+window.chooseBackdatedWorkout=chooseBackdatedWorkout;window.createBackdatedWorkout=createBackdatedWorkout;
+window.createBackdatedCustomWorkout=createBackdatedCustomWorkout;
 render();
 
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
