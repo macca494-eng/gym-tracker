@@ -1,4 +1,4 @@
-const CACHE = "gym-tracker-v7-1";
+const CACHE = "gym-tracker-v7-2";
 const ASSETS = [
   "./","index.html","styles.css","app.js","manifest.json",
   "icon-192.png","icon-512.png","apple-touch-icon.png"

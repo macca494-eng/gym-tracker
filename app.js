@@ -1,5 +1,5 @@
 
-const APP_RELEASE = "6.1";
+const APP_RELEASE = "7.2";
 const DEFAULT_PROGRAM = [
   {id:"upper-a",name:"Upper A – Strength",day:"Mon",plannedMinutes:52,exercises:[
     ["Bench Press",3,5,8,180,"Chest",["Triceps","Front Delts"]],
@@ -407,13 +407,177 @@ function shell(title,subtitle,body,active="home"){
   </div>`;
 }
 
+
+const EXERCISE_GROUPS = [
+  "Chest","Back","Front Delts","Side Delts","Rear Delts","Biceps","Triceps",
+  "Quads","Hamstrings","Glutes","Calves","Core"
+];
+
+function activeWorkoutSummary(){
+  if(!state.current) return null;
+  const exercises=state.current.exercises||[];
+  const idx=Math.min(state.current.exerciseIndex||0,Math.max(0,exercises.length-1));
+  const ex=exercises[idx];
+  const completed=(state.current.logs||[]).reduce((a,l)=>a+(l.sets||[]).filter(s=>s.setType!=="warmup").length,0);
+  const elapsed=state.current.backdated?null:Math.max(0,Math.floor((Date.now()-(state.current.start||Date.now()))/60000));
+  return {exercises,idx,ex,completed,elapsed};
+}
+
+function groupStatus(muscle){
+  const row=weeklyGapRows().find(x=>x.name===muscle);
+  if(!row) return "";
+  return row.short>0?`${row.n.toFixed(row.n%1?1:0)} / ${row.min} · ${row.short.toFixed(row.short%1?1:0)} short`:`${row.n.toFixed(row.n%1?1:0)} / ${row.min} · target reached`;
+}
+
+function openExercisePicker(mode="add",targetIndex=null){
+  const title=mode==="replace"?"Change Exercise":"Add Exercise";
+  const subtitle=mode==="replace"?"Choose a muscle group, then select a replacement":"Choose a muscle group, then add an exercise to the end of this workout";
+  document.getElementById("app").innerHTML=shell(title,subtitle,
+    `<section class="card">
+      <div class="section-kicker">Choose muscle group</div>
+      <div class="muscle-card-grid">
+        ${EXERCISE_GROUPS.map(m=>`<button class="muscle-pick-card" onclick='openExerciseGroup(${JSON.stringify(m)},${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>
+          <strong>${m}</strong>
+          <span>${groupStatus(m)}</span>
+        </button>`).join("")}
+      </div>
+    </section>
+    <section class="card">
+      <div class="between"><div><h3 style="margin:0">Can't find it?</h3><div class="small">Create a new exercise and save it permanently.</div></div></div>
+      <button class="primary" onclick='openCustomExerciseForm(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex},null)'>+ CREATE CUSTOM EXERCISE</button>
+    </section>
+    <button class="secondary" style="width:100%" onclick="go('live')">Back to workout</button>`,
+  "home");
+}
+
+function openExerciseGroup(muscle,mode="add",targetIndex=null){
+  const items=fullExerciseLibrary().filter(x=>x.primary===muscle);
+  document.getElementById("app").innerHTML=shell(muscle,mode==="replace"?"Select replacement exercise":"Select exercise to add",
+    `<section class="card">
+      ${items.length?items.map(x=>`<button class="exercise-pick-card" onclick='chooseExerciseFromPicker(${JSON.stringify(x.name)},${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>
+        <div><strong>${x.name}</strong><div class="small">${x.equipment||"Other"} · ${x.type||"Exercise"} · ${x.repMin||8}–${x.repMax||12} reps</div></div>
+        <span>›</span>
+      </button>`).join(""):`<div class="empty">No saved exercises in this muscle group yet.</div>`}
+    </section>
+    <section class="card">
+      <button class="primary" onclick='openCustomExerciseForm(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex},${JSON.stringify(muscle)})'>+ CREATE CUSTOM ${muscle.toUpperCase()} EXERCISE</button>
+    </section>
+    <button class="secondary" style="width:100%" onclick='openExercisePicker(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>Back to muscle groups</button>`,
+  "home");
+}
+
+function chooseExerciseFromPicker(name,mode="add",targetIndex=null){
+  if(mode==="replace"){
+    replaceExerciseAtIndex(targetIndex,name);
+  }else{
+    addExerciseByName(name);
+  }
+}
+
+function addExerciseByName(name){
+  const item=fullExerciseLibrary().find(x=>x.name===name);
+  if(!item||!state.current) return;
+  const ex={
+    id:"custom-"+Date.now()+"-"+Math.random().toString(36).slice(2,6),
+    name:item.name,plannedName:item.name,sets:item.sets||3,
+    repMin:item.repMin||8,repMax:item.repMax||12,rest:exerciseRest(item),
+    primary:item.primary,secondary:item.secondary||[],equipment:item.equipment||"Other",
+    type:item.type||"Exercise",skipped:false
+  };
+  state.current.exercises.push(ex);
+  state.current.logs.push({
+    exerciseId:ex.id,name:ex.name,plannedName:ex.name,primary:ex.primary,secondary:ex.secondary,
+    rest:ex.rest,sets:[],skipped:false,wasSwapped:false,notes:exerciseNotes(ex.name)
+  });
+  save();
+  toast(`${ex.name} added to end of workout`);
+  go("live");
+}
+
+function replaceExerciseAtIndex(targetIndex,name){
+  if(!state.current) return;
+  const idx=Number(targetIndex);
+  const item=fullExerciseLibrary().find(x=>x.name===name);
+  const old=state.current.exercises?.[idx];
+  const log=state.current.logs?.[idx];
+  if(!item||!old||!log) return;
+  if((log.sets||[]).length){
+    alert("This exercise already has logged sets. Add a new exercise instead so those sets stay attached to the correct exercise.");
+    go("live");
+    return;
+  }
+  state.current.exercises[idx]={
+    ...old,name:item.name,primary:item.primary,secondary:item.secondary||[],
+    rest:exerciseRest(item),repMin:item.repMin||8,repMax:item.repMax||12,
+    equipment:item.equipment||"Other",type:item.type||"Exercise"
+  };
+  state.current.logs[idx]={
+    ...log,name:item.name,primary:item.primary,secondary:item.secondary||[],
+    rest:exerciseRest(item),wasSwapped:item.name!==log.plannedName,notes:exerciseNotes(item.name)
+  };
+  save();
+  toast(`${old.name} changed to ${item.name}`);
+  go("live");
+}
+
+function openCustomExerciseForm(mode="add",targetIndex=null,preselectedMuscle=null){
+  document.getElementById("app").innerHTML=shell("Create Custom Exercise","Save it to your exercise library",
+    `<section class="card">
+      <div class="field"><label>Exercise name</label><input id="customName" type="text" placeholder="e.g. Hammer Strength High Row"></div>
+      <div class="input-grid">
+        <div class="field"><label>Primary muscle</label>
+          <select id="customPrimary" style="width:100%;background:transparent;color:white;border:none;font-size:17px;font-weight:800;outline:none">
+            ${EXERCISE_GROUPS.map(m=>`<option value="${m}" ${preselectedMuscle===m?"selected":""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field"><label>Equipment</label><input id="customEquipment" type="text" placeholder="Machine / Cable"></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Secondary muscles (optional, comma separated)</label><input id="customSecondary" type="text" placeholder="e.g. Biceps, Rear Delts"></div>
+      <div class="input-grid">
+        <div class="field"><label>Working sets</label><input id="customSets" type="number" min="1" step="1" value="3"></div>
+        <div class="field"><label>Rest seconds</label><input id="customRest" type="number" min="15" step="15" value="90"></div>
+        <div class="field"><label>Min reps</label><input id="customRepMin" type="number" min="1" step="1" value="8"></div>
+        <div class="field"><label>Max reps</label><input id="customRepMax" type="number" min="1" step="1" value="12"></div>
+      </div>
+      <button class="primary" onclick='saveCustomExerciseFromForm(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>SAVE & ${mode==="replace"?"USE AS REPLACEMENT":"ADD TO WORKOUT"}</button>
+    </section>
+    <button class="secondary" style="width:100%" onclick='openExercisePicker(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>Cancel</button>`,
+  "home");
+}
+
+function saveCustomExerciseFromForm(mode="add",targetIndex=null){
+  const name=(qs("#customName")?.value||"").trim();
+  const primary=qs("#customPrimary")?.value||"Chest";
+  const equipment=(qs("#customEquipment")?.value||"Other").trim()||"Other";
+  const secondary=(qs("#customSecondary")?.value||"").split(",").map(x=>x.trim()).filter(Boolean);
+  const sets=parseInt(qs("#customSets")?.value)||3;
+  const rest=parseInt(qs("#customRest")?.value)||90;
+  const repMin=parseInt(qs("#customRepMin")?.value)||8;
+  const repMax=parseInt(qs("#customRepMax")?.value)||12;
+  if(!name){toast("Enter an exercise name");return}
+  let item=fullExerciseLibrary().find(x=>x.name.toLowerCase()===name.toLowerCase());
+  if(!item){
+    item={name,primary,secondary,type:"Custom",equipment,rest,repMin,repMax,sets};
+    state.customExercises.push(item);
+    save();
+  }
+  chooseExerciseFromPicker(item.name,mode,targetIndex);
+}
 function home(){
   const recId=recommendedWorkoutId(),recommended=workoutById(recId)||state.program[0],selected=workoutById(state.selectedProgram)||recommended;
   const completedThisWeek=state.history.slice(-30).filter(h=>(h.end||0)>=startOfTrainingWeek()),recent=lastCompletedWorkout();
   const weekSets=completedThisWeek.reduce((a,h)=>a+(h.logs||[]).reduce((x,l)=>x+(l.sets||[]).filter(s=>s.setType!=="warmup").length,0),0);
   const isOverride=selected.id!==recommended.id,c=todayCheckin(),t=state.macroTargets,gaps=weeklyGapRows(),biggest=gaps.filter(x=>x.short>0).slice(0,3),kcalTarget=Math.round(t.protein*4+t.carbs*4+t.fat*9);
+  const active=activeWorkoutSummary();
   return shell(`${greeting()}, Michael`,todayLabel(),
-  `<section class="card hero">
+  `${active?`<section class="card active-workout-card">
+      <div class="between"><span class="tag" style="margin-bottom:0">WORKOUT IN PROGRESS</span><span class="badge">${active.elapsed===null?"Backdated":`${active.elapsed} min`}</span></div>
+      <div class="big" style="font-size:28px;margin-top:14px">${state.current.name}</div>
+      <div class="meta">${active.ex?`Exercise ${active.idx+1} of ${active.exercises.length} · ${active.ex.name}`:""} · ${active.completed} working sets logged</div>
+      <button class="primary" onclick="go('live')">CONTINUE WORKOUT</button>
+      <button class="secondary danger" style="width:100%;margin-top:8px" onclick="cancelWorkout()">Discard workout</button>
+    </section>`:""}
+    <section class="card hero">
       <div class="hero-orb"></div><span class="tag">${isOverride?"SELECTED":"RECOMMENDED"}</span>
       <div class="big">${selected.name}</div>
       <div class="meta">${isOverride?"Manual choice":recommendationReason(recommended)} · ${selected.exercises.length} exercises · ${totalSets(selected)} planned sets · ~${selected.plannedMinutes||50} min incl. warm-up</div>
@@ -588,7 +752,10 @@ function live(){
       <div class="between"><h3>Workout queue</h3><span class="small">${sessionExercises.length} exercises</span></div>
       ${sessionExercises.map((e,i)=>`<div class="workout-row between">
         <div><strong>${i+1}. ${e.name}</strong><div class="small">${e.skipped?"Skipped":`${e.sets} sets · ${e.primary}`}</div></div>
-        <span class="${i===state.current.exerciseIndex?"good":"small"}">${i===state.current.exerciseIndex?"Current":(i<state.current.exerciseIndex?"Done":"")}</span>
+        <div class="row">
+          ${i>=state.current.exerciseIndex && !(state.current.logs[i]?.sets||[]).length?`<button class="secondary" onclick="openExercisePicker('replace',${i})">Change</button>`:""}
+          <span class="${i===state.current.exerciseIndex?"good":"small"}">${i===state.current.exerciseIndex?"Current":(i<state.current.exerciseIndex?"Done":"")}</span>
+        </div>
       </div>`).join("")}
     </section>
     <button class="secondary danger" style="width:100%" onclick="cancelWorkout()">Cancel workout</button>`,
@@ -645,17 +812,17 @@ function finishWorkoutEarly(){
 }
 
 function openExerciseMenu(){
-  const ex=state.current.exercises[state.current.exerciseIndex];
-  const same=fullExerciseLibrary().filter(x=>x.primary===ex.primary && x.name!==ex.name).slice(0,8);
-  const options=same.map(x=>`<button class="secondary" style="width:100%;margin-bottom:8px;text-align:left" onclick='swapExercise(${JSON.stringify(x.name)})'>
-    <strong>${x.name}</strong><div class="small">${x.equipment} · ${x.type} · ${x.primary}</div>
-  </button>`).join("");
-  document.getElementById("app").innerHTML = shell("Change Exercise",ex.name,
-    `<section class="card"><h3>Swap for a similar exercise</h3>${options||`<div class="empty">No similar exercises found.</div>`}
-      <button class="secondary" style="width:100%;margin-top:6px" onclick="openAllExercises()">Choose any exercise</button>
-    </section>
-    <section class="card">
-      <button class="secondary" style="width:100%;margin-bottom:8px" onclick="addExercise()">+ Add exercise to workout</button>
+  const idx=state.current.exerciseIndex;
+  const ex=state.current.exercises[idx];
+  const log=state.current.logs[idx];
+  document.getElementById("app").innerHTML=shell("Exercise Options",ex.name,
+    `<section class="card">
+      <button class="secondary" style="width:100%;margin-bottom:8px;text-align:left" onclick="openExercisePicker('replace',${idx})">
+        <strong>Change this exercise</strong><div class="small">${(log.sets||[]).length?"Logged sets must stay with the current exercise":"Choose by muscle group from your exercise library"}</div>
+      </button>
+      <button class="secondary" style="width:100%;margin-bottom:8px;text-align:left" onclick="openExercisePicker('add',null)">
+        <strong>+ Add exercise to end of workout</strong><div class="small">Choose a muscle group, then an exercise</div>
+      </button>
       <button class="secondary" style="width:100%;margin-bottom:8px" onclick="moveExercise(1)">Move current exercise down</button>
       <button class="secondary" style="width:100%;margin-bottom:8px" onclick="moveExercise(-1)">Move current exercise up</button>
       <button class="secondary" style="width:100%;margin-bottom:8px" onclick="setDefaultRest()">Set default rest</button>
@@ -666,29 +833,11 @@ function openExerciseMenu(){
 }
 
 function openAllExercises(){
-  const buttons=fullExerciseLibrary().map(x=>`<button class="secondary" style="width:100%;margin-bottom:8px;text-align:left" onclick='swapExercise(${JSON.stringify(x.name)})'>
-    <strong>${x.name}</strong><div class="small">${x.primary} · ${x.equipment}</div>
-  </button>`).join("");
-  document.getElementById("app").innerHTML = shell("Exercise Library","Choose a replacement",
-    `<section class="card">${buttons}</section><button class="primary" onclick="openExerciseMenu()">Back</button>`,"home");
+  openExercisePicker("replace",state.current?.exerciseIndex??0);
 }
 
 function swapExercise(name){
-  const item=fullExerciseLibrary().find(x=>x.name===name);
-  if(!item) return;
-  const idx=state.current.exerciseIndex;
-  const old=state.current.exercises[idx];
-  state.current.exercises[idx]={
-    ...old,
-    name:item.name, primary:item.primary, secondary:item.secondary, rest:item.rest,
-    repMin:item.repMin, repMax:item.repMax, equipment:item.equipment, type:item.type
-  };
-  state.current.logs[idx]={
-    ...state.current.logs[idx],
-    name:item.name, primary:item.primary, secondary:item.secondary, rest:item.rest,
-    wasSwapped:item.name!==state.current.logs[idx].plannedName
-  };
-  save();toast(`Swapped to ${item.name}`);go("live");
+  replaceExerciseAtIndex(state.current?.exerciseIndex??0,name);
 }
 
 function setDefaultRest(){
@@ -703,26 +852,7 @@ function setDefaultRest(){
 }
 
 function addExercise(){
-  const name=prompt("Enter an exercise name exactly as it appears in the library, or type a new one:");
-  if(!name) return;
-  let item=fullExerciseLibrary().find(x=>x.name.toLowerCase()===name.trim().toLowerCase());
-  if(!item){
-    const primary=prompt("Primary muscle group (e.g. Chest, Back, Biceps):","Chest") || "Other";
-    const sets=parseInt(prompt("Working sets:","3"))||3;
-    const repMin=parseInt(prompt("Minimum reps:","8"))||8;
-    const repMax=parseInt(prompt("Maximum reps:","12"))||12;
-    const rest=parseInt(prompt("Rest seconds:","90"))||90;
-    item={name:name.trim(),primary,secondary:[],type:"Custom",equipment:"Other",rest,repMin,repMax,sets};
-    state.customExercises.push(item);
-  }
-  const ex={
-    id:"custom-"+Date.now(),name:item.name,plannedName:item.name,sets:item.sets||3,
-    repMin:item.repMin,repMax:item.repMax,rest:item.rest,primary:item.primary,
-    secondary:item.secondary||[],equipment:item.equipment||"Other",type:item.type||"Custom",skipped:false
-  };
-  state.current.exercises.push(ex);
-  state.current.logs.push({exerciseId:ex.id,name:ex.name,plannedName:ex.name,primary:ex.primary,secondary:ex.secondary,rest:ex.rest,sets:[],skipped:false,wasSwapped:false});
-  save();toast(`${ex.name} added`);go("live");
+  openExercisePicker("add",null);
 }
 
 function skipExercise(){
@@ -1016,6 +1146,29 @@ function weeklyMuscleTotals(){
   }));
   return muscle;
 }
+
+function sparklineSVG(points){
+  if(!points || !points.length) return "";
+  const vals=points.map(p=>Number(p.v)).filter(Number.isFinite);
+  if(!vals.length) return "";
+  const min=Math.min(...vals), max=Math.max(...vals), range=Math.max(1,max-min);
+  const w=300,h=70,pad=6;
+  const coords=points.map((p,i)=>{
+    const v=Number(p.v);
+    const x=pad+(i/(Math.max(1,points.length-1)))*(w-pad*2);
+    const y=h-pad-((v-min)/range)*(h-pad*2);
+    return [x,y];
+  });
+  const line=coords.map((c,i)=>(i?"L":"M")+c[0].toFixed(1)+","+c[1].toFixed(1)).join(" ");
+  const dots=coords.map(c=>`<circle cx="${c[0]}" cy="${c[1]}" r="2.8" fill="#caff3a"/>`).join("");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="Strength trend chart">
+    <defs><linearGradient id="gymTrend" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#caff3a" stop-opacity=".22"/><stop offset="1" stop-color="#caff3a" stop-opacity="0"/></linearGradient></defs>
+    <path d="${line} L ${coords[coords.length-1][0]},${h} L ${coords[0][0]},${h} Z" fill="url(#gymTrend)"/>
+    <path d="${line}" fill="none" stroke="#caff3a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}
+  </svg>`;
+}
+
 function stats(){
   const lifts=["Bench Press","Back Squat","Deadlift","Overhead Press","Assisted Pull-Ups","Weighted Pull-Ups","Assisted Dips","Dips","Barbell Row","Seated Chest Press"];
   const cards=lifts.map(name=>{
@@ -1136,15 +1289,28 @@ function importData(event){
 function resetAll(){ if(confirm("Delete all workout history and reset the app?")){localStorage.removeItem("gymState");location.reload()} }
 
 function render(){
-  let html="";
-  if(state.route==="home")html=home();
-  else if(state.route==="live")html=live();
-  else if(state.route==="summary")html=summary();
-  else if(state.route==="analysis")html=analysis();
-  else if(state.route==="stats")html=stats();
-  else if(state.route==="history")html=history();
-  else if(state.route==="program")html=program();
-  document.getElementById("app").innerHTML=html;
+  try{
+    let html="";
+    if(state.route==="home")html=home();
+    else if(state.route==="live")html=live();
+    else if(state.route==="summary")html=summary();
+    else if(state.route==="analysis")html=analysis();
+    else if(state.route==="stats")html=stats();
+    else if(state.route==="history")html=history();
+    else if(state.route==="program")html=program();
+    else {state.route="home";save();html=home();}
+    document.getElementById("app").innerHTML=html;
+  }catch(err){
+    console.error("Gym Tracker render error:",err);
+    state.route="home";
+    save();
+    try{
+      document.getElementById("app").innerHTML=home();
+      setTimeout(()=>toast("Recovered from a screen error"),100);
+    }catch(fatal){
+      document.getElementById("app").innerHTML='<div style="padding:24px;color:white;font-family:-apple-system,sans-serif"><h2>Gym Tracker</h2><p>The app recovered from an error. Close and reopen it.</p></div>';
+    }
+  }
 }
 window.go=go; window.startWorkout=startWorkout; window.completeSet=completeSet; window.skipRest=skipRest; window.addRest=addRest;
 window.cancelWorkout=cancelWorkout; window.exportData=exportData; window.importData=importData; window.resetAll=resetAll;
@@ -1153,6 +1319,9 @@ window.addExercise=addExercise; window.skipExercise=skipExercise; window.moveExe
 window.setLoadMode=setLoadMode; window.editSet=editSet; window.deleteSet=deleteSet; window.finishWorkoutEarly=finishWorkoutEarly; window.setDefaultRest=setDefaultRest;
 window.saveCheckin=saveCheckin;window.buildTopUp=buildTopUp;window.startBlankCustom=startBlankCustom;
 window.addToBlankCustom=addToBlankCustom;window.launchBlankCustom=launchBlankCustom;window.editMacroTargets=editMacroTargets;
+window.openExercisePicker=openExercisePicker;window.openExerciseGroup=openExerciseGroup;window.chooseExerciseFromPicker=chooseExerciseFromPicker;
+window.addExerciseByName=addExerciseByName;window.replaceExerciseAtIndex=replaceExerciseAtIndex;
+window.openCustomExerciseForm=openCustomExerciseForm;window.saveCustomExerciseFromForm=saveCustomExerciseFromForm;
 window.openCalendarDate=openCalendarDate;window.saveCheckinForDate=saveCheckinForDate;
 window.chooseBackdatedWorkout=chooseBackdatedWorkout;window.createBackdatedWorkout=createBackdatedWorkout;
 window.createBackdatedCustomWorkout=createBackdatedCustomWorkout;

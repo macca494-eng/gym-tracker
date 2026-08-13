@@ -1,4 +1,24 @@
-# Gym Tracker PWA — v7.1 MVP
+# Gym Tracker PWA — v7.2
+
+## v7.2 workflow update
+- Home now shows a prominent **Workout in Progress** card whenever a session is active.
+- Leaving a workout no longer means hunting for it again: tap **Continue Workout** to resume exactly where you were.
+- Exercise changes and additions now use a visual muscle-group library instead of requiring an exact typed exercise name.
+- Muscle-group cards show current weekly set status to help you choose useful additions.
+- Select a muscle group, then choose from saved exercise cards.
+- **Change Exercise** replaces the selected unstarted exercise in the plan.
+- **Add Exercise** always adds the new exercise to the end of the current workout.
+- Upcoming exercises in the workout queue have a **Change** button.
+- A custom-exercise form now lets you set name, primary muscle, secondary muscles, equipment, sets, rep range and rest period.
+- Newly created custom exercises are saved permanently to the exercise library.
+- Existing v7.1.1 training, nutrition, bodyweight and preference data remains compatible.
+
+## v7.1.1 hotfix
+- Fixes the Progress button / Progress screen.
+- Restores the missing strength-chart helper.
+- Fixes the black-screen-on-reopen issue caused when Progress was the saved last screen.
+- Adds a render recovery safeguard so a future screen error returns the app to Home rather than leaving a blank screen.
+- Keeps all existing workout, macro, bodyweight and preference data compatible.
 
 ## v7.1 update
 - Tap any date in the monthly calendar.

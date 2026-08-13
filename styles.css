@@ -186,3 +186,26 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 .week-bar small{font-size:8px;color:var(--muted2)}
 
 .cal-day{cursor:pointer}.cal-day:hover{background:var(--accent-soft)}
+
+.active-workout-card{
+  border-color:rgba(202,255,58,.22);
+  background:linear-gradient(180deg,rgba(202,255,58,.08),rgba(16,20,24,.98));
+}
+.muscle-card-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+}
+.muscle-pick-card{
+  min-height:92px;text-align:left;border:1px solid var(--line2);
+  background:linear-gradient(180deg,#151a1f,#101418);color:var(--text);
+  border-radius:16px;padding:14px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;
+}
+.muscle-pick-card strong{font-size:16px}
+.muscle-pick-card span{font-size:10px;color:var(--muted);line-height:1.35}
+.muscle-pick-card:active{background:var(--accent-soft);border-color:rgba(202,255,58,.3)}
+.exercise-pick-card{
+  width:100%;border:none;background:transparent;color:var(--text);padding:14px 0;
+  border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;text-align:left;
+}
+.exercise-pick-card:last-child{border-bottom:none}
+.exercise-pick-card>span{font-size:26px;color:var(--accent)}
+@media(max-width:360px){.muscle-card-grid{grid-template-columns:1fr}}
