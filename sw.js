@@ -1,6 +1,6 @@
-const CACHE = "gym-tracker-v7-2";
+const CACHE = "gym-tracker-v7-4";
 const ASSETS = [
-  "./","index.html","styles.css","app.js","manifest.json",
+  "./","index.html","styles.css?v=7.4","app.js?v=7.4","manifest.json",
   "icon-192.png","icon-512.png","apple-touch-icon.png"
 ];
 self.addEventListener("install", e => {

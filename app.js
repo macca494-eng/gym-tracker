@@ -1,5 +1,5 @@
 
-const APP_RELEASE = "7.2";
+const APP_RELEASE = "7.4";
 const DEFAULT_PROGRAM = [
   {id:"upper-a",name:"Upper A – Strength",day:"Mon",plannedMinutes:52,exercises:[
     ["Bench Press",3,5,8,180,"Chest",["Triceps","Front Delts"]],
@@ -154,6 +154,9 @@ if(!state.customExercises) state.customExercises=[];
 if(!state.exercisePrefs) state.exercisePrefs={};
 if(!state.checkins) state.checkins=[];
 if(!state.macroTargets) state.macroTargets={protein:190,carbs:250,fat:80};
+if(!state.progressMetric) state.progressMetric="weight";
+if(!state.progressRange) state.progressRange="7D";
+if(!Number.isInteger(state.progressPoint)) state.progressPoint=-1;
 if(!state.appVersion || state.appVersion<7){
   state.program=DEFAULT_PROGRAM;
   state.appVersion=7;
@@ -170,16 +173,30 @@ function greeting(){
   return h<12?"Good morning":h<17?"Good afternoon":"Good evening";
 }
 function todayCheckin(){
-  return state.checkins.find(x=>x.date===isoDate())||{date:isoDate(),weight:null,protein:null,carbs:null,fat:null};
+  return state.checkins.find(x=>x.date===isoDate())||{date:isoDate(),weight:null,protein:null,carbs:null,fat:null,waist:null};
 }
 function upsertCheckin(values){
   const d=isoDate(); let c=state.checkins.find(x=>x.date===d);
-  if(!c){c={date:d,weight:null,protein:null,carbs:null,fat:null};state.checkins.push(c);}
+  if(!c){c={date:d,weight:null,protein:null,carbs:null,fat:null,waist:null};state.checkins.push(c);}
   Object.assign(c,values); save();
 }
 function macroCalories(c){return Math.round((Number(c.protein)||0)*4+(Number(c.carbs)||0)*4+(Number(c.fat)||0)*9);}
+function calorieTarget(){
+  const t=state.macroTargets||{protein:190,carbs:250,fat:80};
+  return Math.round(Number(t.protein)*4+Number(t.carbs)*4+Number(t.fat)*9);
+}
+function updateAutoCalories(prefix){
+  const protein=Number(qs(`#${prefix}Protein`)?.value)||0;
+  const carbs=Number(qs(`#${prefix}Carbs`)?.value)||0;
+  const fat=Number(qs(`#${prefix}Fat`)?.value)||0;
+  const calories=Math.round(protein*4+carbs*4+fat*9);
+  const value=qs(`#${prefix}CaloriesValue`);
+  const badge=qs(`#${prefix}CaloriesBadge`);
+  if(value)value.textContent=`${calories.toLocaleString()} kcal`;
+  if(badge)badge.textContent=prefix==="daily"?`${calories.toLocaleString()} / ${calorieTarget().toLocaleString()} kcal`:`${calories.toLocaleString()} kcal`;
+}
 function last7Checkins(){
-  const out=[]; for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const key=isoDate(d);out.push(state.checkins.find(x=>x.date===key)||{date:key,protein:null,carbs:null,fat:null,weight:null});}
+  const out=[]; for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const key=isoDate(d);out.push(state.checkins.find(x=>x.date===key)||{date:key,protein:null,carbs:null,fat:null,weight:null,waist:null});}
   return out;
 }
 function avg(arr,key){
@@ -234,17 +251,18 @@ function sessionStartSuggestion(name){
 }
 
 function checkinForDate(date){
-  return state.checkins.find(x=>x.date===date)||{date,weight:null,protein:null,carbs:null,fat:null};
+  return state.checkins.find(x=>x.date===date)||{date,weight:null,protein:null,carbs:null,fat:null,waist:null};
 }
 function saveCheckinForDate(date){
   const values={
     weight:qs("#dateWeight")?.value===""?null:Number(qs("#dateWeight")?.value),
     protein:qs("#dateProtein")?.value===""?null:Number(qs("#dateProtein")?.value),
     carbs:qs("#dateCarbs")?.value===""?null:Number(qs("#dateCarbs")?.value),
-    fat:qs("#dateFat")?.value===""?null:Number(qs("#dateFat")?.value)
+    fat:qs("#dateFat")?.value===""?null:Number(qs("#dateFat")?.value),
+    waist:qs("#dateWaist")?.value===""?null:Number(qs("#dateWaist")?.value)
   };
   let c=state.checkins.find(x=>x.date===date);
-  if(!c){c={date,weight:null,protein:null,carbs:null,fat:null};state.checkins.push(c);}
+  if(!c){c={date,weight:null,protein:null,carbs:null,fat:null,waist:null};state.checkins.push(c);}
   Object.assign(c,values);save();toast(`Saved ${date}`);openCalendarDate(date);
 }
 function workoutsForDate(date){
@@ -255,13 +273,16 @@ function openCalendarDate(date){
   const pretty=new Date(date+"T12:00:00").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   document.getElementById("app").innerHTML=shell(pretty,"Training diary",
     `<section class="card">
-      <div class="between"><h3>Check-in</h3><span class="badge">${macroCalories(c)} kcal</span></div>
+      <div class="between"><h3>Check-in</h3><span class="badge" id="dateCaloriesBadge">${macroCalories(c)} kcal</span></div>
       <div class="input-grid">
         <div class="field"><label>Bodyweight kg</label><input id="dateWeight" type="number" step="0.1" value="${c.weight??""}"></div>
-        <div class="field"><label>Protein g</label><input id="dateProtein" type="number" step="1" value="${c.protein??""}"></div>
-        <div class="field"><label>Carbs g</label><input id="dateCarbs" type="number" step="1" value="${c.carbs??""}"></div>
-        <div class="field"><label>Fat g</label><input id="dateFat" type="number" step="1" value="${c.fat??""}"></div>
+        <div class="field"><label>Protein g</label><input id="dateProtein" type="number" step="1" value="${c.protein??""}" oninput="updateAutoCalories('date')"></div>
+        <div class="field"><label>Carbs g</label><input id="dateCarbs" type="number" step="1" value="${c.carbs??""}" oninput="updateAutoCalories('date')"></div>
+        <div class="field"><label>Fat g</label><input id="dateFat" type="number" step="1" value="${c.fat??""}" oninput="updateAutoCalories('date')"></div>
+        <div class="field readonly-field"><label>Calories · auto 4/4/9</label><div id="dateCaloriesValue" class="readonly-value">${macroCalories(c).toLocaleString()} kcal</div></div>
+        <div class="field"><label>Waist cm (weekly)</label><input id="dateWaist" type="number" step="0.1" value="${c.waist??""}"></div>
       </div>
+      <div class="small" style="margin-top:8px">Waist: measure around the belly button, relaxed. Normally record once per week.</div>
       <button class="primary" onclick="saveCheckinForDate('${date}')">SAVE CHECK-IN</button>
     </section>
     <section class="card">
@@ -283,7 +304,10 @@ function chooseBackdatedWorkout(date){
 }
 function createBackdatedWorkout(date,workoutId){
   const w=workoutById(workoutId);if(!w)return;
-  const exercises=w.exercises.map(e=>({...e,plannedName:e.name,skipped:false}));
+  const exercises=w.exercises.map(e=>{
+    const pref=exercisePref(e.name);
+    return {...e,...pref,name:e.name,plannedName:e.name,skipped:false,rest:pref.rest||e.rest};
+  });
   state.current={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),workoutId,name:w.name,start:new Date(date+"T18:00:00").getTime(),exerciseIndex:0,restUntil:null,backdatedDate:date,backdated:true,exercises,logs:exercises.map(e=>({exerciseId:e.id,name:e.name,plannedName:e.name,primary:e.primary,secondary:e.secondary,rest:exerciseRest(e),sets:[],skipped:false,wasSwapped:false,notes:exerciseNotes(e.name)}))};
   save();go("live");
 }
@@ -315,11 +339,17 @@ function totalSets(w){return w.exercises.reduce((a,e)=>a+e.sets,0)}
 
 function fullExerciseLibrary(){
   const map=new Map();
-  [...EXERCISE_LIBRARY,...(state.customExercises||[])].forEach(x=>map.set(x.name.toLowerCase(),x));
+  [...EXERCISE_LIBRARY,...(state.customExercises||[])].forEach(x=>{
+    const pref=state.exercisePrefs?.[x.name]||{};
+    map.set(x.name.toLowerCase(),{...x,...pref,name:x.name});
+  });
   return [...map.values()];
 }
 function exercisePref(name){
   return state.exercisePrefs?.[name] || {};
+}
+function exerciseDefinition(name){
+  return fullExerciseLibrary().find(x=>x.name.toLowerCase()===String(name).toLowerCase())||null;
 }
 function exerciseRest(ex){
   return exercisePref(ex.name).rest || ex.rest;
@@ -413,6 +443,86 @@ const EXERCISE_GROUPS = [
   "Quads","Hamstrings","Glutes","Calves","Core"
 ];
 
+
+let workoutClockHandle=null;
+function workoutElapsedSeconds(){
+  if(!state.current || state.current.backdated) return 0;
+  return Math.max(0,Math.floor((Date.now()-(state.current.start||Date.now()))/1000));
+}
+function workoutElapsedText(){
+  const s=workoutElapsedSeconds(),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  return h>0?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`;
+}
+function startWorkoutTicker(){
+  if(workoutClockHandle) clearInterval(workoutClockHandle);
+  const tick=()=>{
+    const el=document.getElementById("workoutElapsed");
+    if(el && state.current && !state.current.backdated) el.textContent=workoutElapsedText();
+  };
+  tick();
+  workoutClockHandle=setInterval(tick,1000);
+}
+function latestWaist(){
+  return state.checkins.filter(x=>Number(x.waist)>0).sort((a,b)=>a.date.localeCompare(b.date)).pop()||null;
+}
+function waistThisWeek(){
+  const cutoff=startOfTrainingWeek();
+  return state.checkins.filter(x=>Number(x.waist)>0 && new Date(x.date+"T12:00:00").getTime()>=cutoff).sort((a,b)=>a.date.localeCompare(b.date)).pop()||null;
+}
+function saveWeeklyWaist(){
+  const v=parseFloat(qs("#weeklyWaist")?.value);
+  if(!(v>0)){toast("Enter waist measurement");return}
+  upsertCheckin({waist:v});
+  toast("Weekly waist measurement saved");
+  render();
+}
+function muscleIcon(muscle){
+  const m=muscle||"";
+  if(["Quads","Hamstrings","Glutes","Calves"].includes(m)) return "🦵";
+  if(["Biceps","Triceps"].includes(m)) return "💪";
+  if(["Front Delts","Side Delts","Rear Delts"].includes(m)) return "◉";
+  if(m==="Chest") return "◆";
+  if(m==="Back") return "⬟";
+  if(m==="Core") return "◎";
+  return "🏆";
+}
+function muscleBodySVG(values={}){
+  const max=Math.max(1,...Object.values(values).map(Number).filter(Number.isFinite));
+  const op=m=>values[m]?Math.max(.42,Math.min(1,Number(values[m])/max)):.08;
+  const fill=(m)=>`style="opacity:${op(m)}"`;
+  return `<svg class="muscle-body" viewBox="0 0 340 190" role="img" aria-label="Muscles worked">
+    <g class="body-base">
+      <circle cx="86" cy="22" r="15"/><rect x="66" y="39" width="40" height="55" rx="16"/>
+      <rect x="48" y="45" width="15" height="67" rx="8"/><rect x="109" y="45" width="15" height="67" rx="8"/>
+      <rect x="67" y="96" width="17" height="69" rx="9"/><rect x="88" y="96" width="17" height="69" rx="9"/>
+      <circle cx="254" cy="22" r="15"/><rect x="234" y="39" width="40" height="55" rx="16"/>
+      <rect x="216" y="45" width="15" height="67" rx="8"/><rect x="277" y="45" width="15" height="67" rx="8"/>
+      <rect x="235" y="96" width="17" height="69" rx="9"/><rect x="256" y="96" width="17" height="69" rx="9"/>
+    </g>
+    <g class="muscle-hi">
+      <path d="M69 49 Q86 39 103 49 L101 69 Q86 76 71 69 Z" ${fill("Chest")}/>
+      <circle cx="62" cy="48" r="10" ${fill("Front Delts")}/><circle cx="110" cy="48" r="10" ${fill("Front Delts")}/>
+      <circle cx="58" cy="52" r="11" ${fill("Side Delts")}/><circle cx="114" cy="52" r="11" ${fill("Side Delts")}/>
+      <rect x="50" y="61" width="11" height="28" rx="6" ${fill("Biceps")}/><rect x="111" y="61" width="11" height="28" rx="6" ${fill("Biceps")}/>
+      <rect x="76" y="70" width="20" height="21" rx="5" ${fill("Core")}/>
+      <rect x="68" y="99" width="15" height="38" rx="7" ${fill("Quads")}/><rect x="89" y="99" width="15" height="38" rx="7" ${fill("Quads")}/>
+      <rect x="69" y="139" width="13" height="25" rx="6" ${fill("Calves")}/><rect x="90" y="139" width="13" height="25" rx="6" ${fill("Calves")}/>
+
+      <path d="M237 49 Q254 38 271 49 L269 83 Q254 93 239 83 Z" ${fill("Back")}/>
+      <circle cx="230" cy="49" r="10" ${fill("Rear Delts")}/><circle cx="278" cy="49" r="10" ${fill("Rear Delts")}/>
+      <rect x="218" y="61" width="11" height="30" rx="6" ${fill("Triceps")}/><rect x="279" y="61" width="11" height="30" rx="6" ${fill("Triceps")}/>
+      <rect x="239" y="91" width="31" height="17" rx="8" ${fill("Glutes")}/>
+      <rect x="236" y="108" width="15" height="31" rx="7" ${fill("Hamstrings")}/><rect x="257" y="108" width="15" height="31" rx="7" ${fill("Hamstrings")}/>
+      <rect x="237" y="140" width="13" height="25" rx="6" ${fill("Calves")}/><rect x="258" y="140" width="13" height="25" rx="6" ${fill("Calves")}/>
+    </g>
+    <text x="86" y="184" text-anchor="middle">FRONT</text><text x="254" y="184" text-anchor="middle">BACK</text>
+  </svg>`;
+}
+function exerciseMuscleMap(ex){
+  const out={}; if(ex?.primary) out[ex.primary]=1;
+  (ex?.secondary||[]).forEach(m=>out[m]=Math.max(out[m]||0,.5));
+  return out;
+}
 function activeWorkoutSummary(){
   if(!state.current) return null;
   const exercises=state.current.exercises||[];
@@ -453,11 +563,17 @@ function openExercisePicker(mode="add",targetIndex=null){
 function openExerciseGroup(muscle,mode="add",targetIndex=null){
   const items=fullExerciseLibrary().filter(x=>x.primary===muscle);
   document.getElementById("app").innerHTML=shell(muscle,mode==="replace"?"Select replacement exercise":"Select exercise to add",
-    `<section class="card">
-      ${items.length?items.map(x=>`<button class="exercise-pick-card" onclick='chooseExerciseFromPicker(${JSON.stringify(x.name)},${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>
-        <div><strong>${x.name}</strong><div class="small">${x.equipment||"Other"} · ${x.type||"Exercise"} · ${x.repMin||8}–${x.repMax||12} reps</div></div>
-        <span>›</span>
-      </button>`).join(""):`<div class="empty">No saved exercises in this muscle group yet.</div>`}
+    `<section class="card muscle-picker-visual">
+      <div class="between"><div><div class="section-kicker">Target muscle</div><h3 style="margin:0">${muscle}</h3></div><span class="badge">${groupStatus(muscle)}</span></div>
+      ${muscleBodySVG({[muscle]:1})}
+    </section>
+    <section class="card">
+      ${items.length?items.map(x=>`<div class="exercise-library-row">
+        <button class="exercise-pick-card" onclick='chooseExerciseFromPicker(${JSON.stringify(x.name)},${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>
+          <div><strong>${x.name}</strong><div class="small">${x.sets??3} sets · ${x.repMin||8}–${x.repMax||12} reps · ${exerciseRest(x)}s · ${x.equipment||"Other"}</div></div><span>›</span>
+        </button>
+        <button class="mini-edit" onclick='openEditExerciseDefaults(${JSON.stringify(x.name)},${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>Edit</button>
+      </div>`).join(""):`<div class="empty">No saved exercises in this muscle group yet.</div>`}
     </section>
     <section class="card">
       <button class="primary" onclick='openCustomExerciseForm(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex},${JSON.stringify(muscle)})'>+ CREATE CUSTOM ${muscle.toUpperCase()} EXERCISE</button>
@@ -479,7 +595,7 @@ function addExerciseByName(name){
   if(!item||!state.current) return;
   const ex={
     id:"custom-"+Date.now()+"-"+Math.random().toString(36).slice(2,6),
-    name:item.name,plannedName:item.name,sets:item.sets||3,
+    name:item.name,plannedName:item.name,sets:item.sets??3,
     repMin:item.repMin||8,repMax:item.repMax||12,rest:exerciseRest(item),
     primary:item.primary,secondary:item.secondary||[],equipment:item.equipment||"Other",
     type:item.type||"Exercise",skipped:false
@@ -508,7 +624,7 @@ function replaceExerciseAtIndex(targetIndex,name){
   }
   state.current.exercises[idx]={
     ...old,name:item.name,primary:item.primary,secondary:item.secondary||[],
-    rest:exerciseRest(item),repMin:item.repMin||8,repMax:item.repMax||12,
+    sets:item.sets??old.sets??3,rest:exerciseRest(item),repMin:item.repMin||8,repMax:item.repMax||12,
     equipment:item.equipment||"Other",type:item.type||"Exercise"
   };
   state.current.logs[idx]={
@@ -563,6 +679,67 @@ function saveCustomExerciseFromForm(mode="add",targetIndex=null){
   }
   chooseExerciseFromPicker(item.name,mode,targetIndex);
 }
+
+function openEditExerciseDefaults(name,returnMode="add",targetIndex=null){
+  const item=exerciseDefinition(name); if(!item)return;
+  document.getElementById("app").innerHTML=shell("Edit Exercise Defaults",name,
+    `<section class="card">
+      <div class="notice" style="margin-bottom:12px">Changes apply to future uses of this exercise. Previous workout history is never rewritten.</div>
+      <div class="input-grid">
+        <div class="field"><label>Working sets</label><input id="editDefSets" type="number" min="1" step="1" value="${item.sets??3}"></div>
+        <div class="field"><label>Rest seconds</label><input id="editDefRest" type="number" min="15" step="15" value="${exerciseRest(item)}"></div>
+        <div class="field"><label>Min reps</label><input id="editDefMin" type="number" min="1" step="1" value="${item.repMin||8}"></div>
+        <div class="field"><label>Max reps</label><input id="editDefMax" type="number" min="1" step="1" value="${item.repMax||12}"></div>
+      </div>
+      <div class="input-grid">
+        <div class="field"><label>Primary muscle</label>
+          <select id="editDefPrimary" style="width:100%;background:transparent;color:white;border:none;font-size:16px;font-weight:800">
+            ${EXERCISE_GROUPS.map(m=>`<option value="${m}" ${item.primary===m?"selected":""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field"><label>Equipment</label><input id="editDefEquipment" type="text" value="${item.equipment||"Other"}"></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Secondary muscles</label><input id="editDefSecondary" type="text" value="${(item.secondary||[]).join(", ")}"></div>
+      <button class="primary" onclick='saveExerciseDefaults(${JSON.stringify(name)},${JSON.stringify(returnMode)},${targetIndex===null?"null":targetIndex})'>SAVE DEFAULTS</button>
+    </section>
+    <button class="secondary" style="width:100%" onclick='openExercisePicker(${JSON.stringify(returnMode)},${targetIndex===null?"null":targetIndex})'>Cancel</button>`,
+  "home");
+}
+function saveExerciseDefaults(name,returnMode="add",targetIndex=null){
+  const sets=parseInt(qs("#editDefSets")?.value)||3,rest=parseInt(qs("#editDefRest")?.value)||90;
+  const repMin=parseInt(qs("#editDefMin")?.value)||8,repMax=parseInt(qs("#editDefMax")?.value)||12;
+  const primary=qs("#editDefPrimary")?.value||"Chest",equipment=(qs("#editDefEquipment")?.value||"Other").trim()||"Other";
+  const secondary=(qs("#editDefSecondary")?.value||"").split(",").map(x=>x.trim()).filter(Boolean);
+  saveExercisePref(name,{sets,rest,repMin,repMax,primary,secondary,equipment});
+  toast(`${name} defaults updated`);
+  openExerciseGroup(primary,returnMode,targetIndex);
+}
+function openEditCurrentExercise(){
+  if(!state.current)return;
+  const idx=state.current.exerciseIndex,ex=state.current.exercises[idx];
+  document.getElementById("app").innerHTML=shell("Edit For Today",ex.name,
+    `<section class="card">
+      <div class="notice" style="margin-bottom:12px">This changes only the current workout. Exercise-library defaults stay unchanged.</div>
+      <div class="input-grid">
+        <div class="field"><label>Working sets</label><input id="todaySets" type="number" min="1" step="1" value="${ex.sets??3}"></div>
+        <div class="field"><label>Rest seconds</label><input id="todayRest" type="number" min="15" step="15" value="${ex.rest||90}"></div>
+        <div class="field"><label>Min reps</label><input id="todayMin" type="number" min="1" step="1" value="${ex.repMin||8}"></div>
+        <div class="field"><label>Max reps</label><input id="todayMax" type="number" min="1" step="1" value="${ex.repMax||12}"></div>
+      </div>
+      <button class="primary" onclick="saveCurrentExercisePlan()">SAVE FOR TODAY</button>
+    </section>
+    <button class="secondary" style="width:100%" onclick="openExerciseMenu()">Cancel</button>`,
+  "home");
+}
+function saveCurrentExercisePlan(){
+  const idx=state.current.exerciseIndex,ex=state.current.exercises[idx],log=state.current.logs[idx];
+  ex.sets=parseInt(qs("#todaySets")?.value)||ex.sets||3;
+  ex.rest=parseInt(qs("#todayRest")?.value)||ex.rest||90;
+  ex.repMin=parseInt(qs("#todayMin")?.value)||ex.repMin||8;
+  ex.repMax=parseInt(qs("#todayMax")?.value)||ex.repMax||12;
+  log.rest=ex.rest;
+  save();toast("Today's exercise plan updated");go("live");
+}
 function home(){
   const recId=recommendedWorkoutId(),recommended=workoutById(recId)||state.program[0],selected=workoutById(state.selectedProgram)||recommended;
   const completedThisWeek=state.history.slice(-30).filter(h=>(h.end||0)>=startOfTrainingWeek()),recent=lastCompletedWorkout();
@@ -586,15 +763,27 @@ function home(){
     </section>
     <section class="card">${monthCalendarHTML()}</section>
     <section class="card">
-      <div class="between"><h3>Today's check-in</h3><span class="badge">${macroCalories(c)} / ${kcalTarget} kcal</span></div>
+      <div class="between"><h3>Today's check-in</h3><span class="badge" id="dailyCaloriesBadge">${macroCalories(c)} / ${kcalTarget} kcal</span></div>
       <div class="input-grid">
         <div class="field"><label>Bodyweight kg</label><input id="dailyWeight" type="number" step="0.1" value="${c.weight??""}" placeholder="e.g. 89.8"></div>
-        <div class="field"><label>Protein g</label><input id="dailyProtein" type="number" step="1" value="${c.protein??""}" placeholder="${t.protein}"></div>
-        <div class="field"><label>Carbs g</label><input id="dailyCarbs" type="number" step="1" value="${c.carbs??""}" placeholder="${t.carbs}"></div>
-        <div class="field"><label>Fat g</label><input id="dailyFat" type="number" step="1" value="${c.fat??""}" placeholder="${t.fat}"></div>
+        <div class="field"><label>Protein g</label><input id="dailyProtein" type="number" step="1" value="${c.protein??""}" placeholder="${t.protein}" oninput="updateAutoCalories('daily')"></div>
+        <div class="field"><label>Carbs g</label><input id="dailyCarbs" type="number" step="1" value="${c.carbs??""}" placeholder="${t.carbs}" oninput="updateAutoCalories('daily')"></div>
+        <div class="field"><label>Fat g</label><input id="dailyFat" type="number" step="1" value="${c.fat??""}" placeholder="${t.fat}" oninput="updateAutoCalories('daily')"></div>
+        <div class="field readonly-field"><label>Calories · auto 4/4/9</label><div id="dailyCaloriesValue" class="readonly-value">${macroCalories(c).toLocaleString()} kcal</div></div>
       </div>
       <div style="margin-top:12px">${macroBar("Protein",c.protein,t.protein)}${macroBar("Carbs",c.carbs,t.carbs)}${macroBar("Fat",c.fat,t.fat)}</div>
       <button class="primary" onclick="saveCheckin()">SAVE TODAY</button>
+    </section>
+    <section class="card">
+      ${waistThisWeek()?`
+        <div class="between"><div><div class="section-kicker">Weekly waist</div><h3 style="margin:0">${waistThisWeek().waist} cm</h3></div><span class="good">Measured ✓</span></div>
+        <div class="small" style="margin-top:8px">Measured around the belly button · ${new Date(waistThisWeek().date+"T12:00:00").toLocaleDateString()}</div>
+      `:`
+        <div class="between"><div><div class="section-kicker">Weekly waist</div><h3 style="margin:0">Measurement due</h3></div><span class="warn">This week</span></div>
+        <div class="small" style="margin:8px 0 12px">Measure around the belly button, relaxed, under similar conditions each week.</div>
+        <div class="field"><label>Waist circumference (cm)</label><input id="weeklyWaist" type="number" step="0.1" placeholder="${latestWaist()?.waist??"e.g. 99.0"}"></div>
+        <button class="primary" onclick="saveWeeklyWaist()">SAVE WAIST</button>
+      `}
     </section>
     <section class="card">
       <div class="between"><h3>Weekly training balance</h3><span class="badge">${weekSets} working sets</span></div>
@@ -623,7 +812,8 @@ function suggestedExerciseForMuscle(muscle){
   const p={"Rear Delts":["Rear Delt Fly","Face Pull"],"Side Delts":["Cable Lateral Raise","Lateral Raise"],"Front Delts":["DB Shoulder Press","Overhead Press"],"Chest":["Seated Chest Press","Incline DB Press"],"Back":["Lat Pulldown","Seated Cable Row"],"Biceps":["Cable Curl","Hammer Curl"],"Triceps":["Tricep Pushdown","Overhead Tricep Extension"],"Quads":["Leg Extension","Leg Press"],"Hamstrings":["Leg Curl","Seated Hamstring Curl"],"Glutes":["Bulgarian Split Squat","Romanian Deadlift"],"Calves":["Standing Calf Raise","Seated Calf Raise"],"Core":["Cable Crunch","Hanging Leg Raise"]};
   return (p[muscle]||[]).map(n=>fullExerciseLibrary().find(x=>x.name===n)).filter(Boolean);
 }
-function makeSessionExercise(item,sets=3){
+function makeSessionExercise(item,sets=null){
+  sets=sets??item.sets??3;
   return {id:"custom-"+Date.now()+"-"+Math.random().toString(36).slice(2,7),name:item.name,plannedName:item.name,sets,repMin:item.repMin||8,repMax:item.repMax||12,rest:exerciseRest(item),primary:item.primary,secondary:item.secondary||[],equipment:item.equipment||"Other",type:item.type||"Custom",skipped:false};
 }
 function launchCustom(name,exercises){
@@ -642,7 +832,7 @@ function startBlankCustom(){
      <section class="card"><h3>Selected</h3><div id="customSelected" class="small">No exercises selected yet.</div><button class="primary" onclick="launchBlankCustom()">START CUSTOM WORKOUT</button></section>`,"home");
 }
 function addToBlankCustom(name){
-  const item=fullExerciseLibrary().find(x=>x.name===name);if(!item)return;window.__blankCustom.push(makeSessionExercise(item,3));
+  const item=fullExerciseLibrary().find(x=>x.name===name);if(!item)return;window.__blankCustom.push(makeSessionExercise(item));
   const el=document.getElementById("customSelected");if(el)el.innerHTML=window.__blankCustom.map((x,i)=>`${i+1}. ${x.name} · ${x.sets} sets`).join("<br>");
 }
 function launchBlankCustom(){
@@ -657,7 +847,10 @@ function launchBlankCustom(){
 }
 function startWorkout(id){
   const w = state.program.find(x=>x.id===id);
-  const sessionExercises = w.exercises.map(e=>({...e, plannedName:e.name, skipped:false}));
+  const sessionExercises = w.exercises.map(e=>{
+    const pref=exercisePref(e.name);
+    return {...e,...pref,name:e.name,plannedName:e.name,skipped:false,rest:pref.rest||e.rest};
+  });
   state.current = {
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
     workoutId:id, name:w.name, start:Date.now(), exerciseIndex:0, restUntil:null,
@@ -692,9 +885,11 @@ function live(){
   const defaultAdded = nextSug?.mode==="added"?nextSug.value:(setNo===1&&startInfo?.suggestion?.mode==="added"?startInfo.suggestion.value:(prevSet?.addedWeight ?? ""));
 
   const assisted=assistModeFor(ex.name);
+  setTimeout(startWorkoutTicker,0);
 
   return shell(state.current.name,`Exercise ${state.current.exerciseIndex+1} of ${sessionExercises.length}`,
-    `<section class="card">
+    `<section class="workout-clock-strip"><span>SESSION</span><strong id="workoutElapsed">${state.current.backdated?"Backdated":workoutElapsedText()}</strong></section>
+    <section class="card">
       <div class="between">
         <div>
           <div class="counter">SET ${setNo} OF ${ex.sets}</div>
@@ -704,6 +899,7 @@ function live(){
       </div>
       ${log.wasSwapped?`<div class="badge" style="margin-top:10px">Swapped from ${log.plannedName}</div>`:""}
       <div class="meta">Target ${ex.repMin}–${ex.repMax} reps · ${Math.floor(ex.rest/60)}:${String(ex.rest%60).padStart(2,"0")} rest · ${ex.primary}</div>
+      <div class="exercise-muscle-visual">${muscleBodySVG(exerciseMuscleMap(ex))}</div>
       ${state.current.backdated?`<div class="notice" style="margin-top:10px">Backdated workout for ${state.current.backdatedDate}. This session will save to that historical date.</div>`:""}
       ${prev?`<div class="card" style="margin-top:14px"><div class="small">Previous ${ex.name}</div><strong>${prev.sets.filter(s=>s.setType!=="warmup").map(s=>formatSet(s,ex.name)).join(" · ")}</strong></div>`:""}
       ${(nextSug||startInfo?.suggestion)?`<div class="notice" style="margin-top:10px"><strong>Suggested load:</strong> ${formatSuggestion(nextSug||startInfo.suggestion)}<br><span class="small">${(nextSug||startInfo.suggestion).reason||"Based on your last logged performance"}</span></div>`:""}
@@ -750,11 +946,13 @@ function live(){
     </section>
     <section class="card">
       <div class="between"><h3>Workout queue</h3><span class="small">${sessionExercises.length} exercises</span></div>
-      ${sessionExercises.map((e,i)=>`<div class="workout-row between">
+      ${sessionExercises.map((e,i)=>`<div class="workout-row between queue-row">
         <div><strong>${i+1}. ${e.name}</strong><div class="small">${e.skipped?"Skipped":`${e.sets} sets · ${e.primary}`}</div></div>
-        <div class="row">
-          ${i>=state.current.exerciseIndex && !(state.current.logs[i]?.sets||[]).length?`<button class="secondary" onclick="openExercisePicker('replace',${i})">Change</button>`:""}
-          <span class="${i===state.current.exerciseIndex?"good":"small"}">${i===state.current.exerciseIndex?"Current":(i<state.current.exerciseIndex?"Done":"")}</span>
+        <div class="queue-actions">
+          <button class="queue-move" aria-label="Move ${e.name} up" ${i===0?"disabled":""} onclick="moveExerciseAt(${i},-1)">↑</button>
+          <button class="queue-move" aria-label="Move ${e.name} down" ${i===sessionExercises.length-1?"disabled":""} onclick="moveExerciseAt(${i},1)">↓</button>
+          ${i!==state.current.exerciseIndex && !(state.current.logs[i]?.sets||[]).length && !e.skipped?`<button class="secondary" onclick="openExercisePicker('replace',${i})">Change</button>`:""}
+          <span class="${i===state.current.exerciseIndex?"good":"small"}">${queueStatusAt(i)}</span>
         </div>
       </div>`).join("")}
     </section>
@@ -823,6 +1021,12 @@ function openExerciseMenu(){
       <button class="secondary" style="width:100%;margin-bottom:8px;text-align:left" onclick="openExercisePicker('add',null)">
         <strong>+ Add exercise to end of workout</strong><div class="small">Choose a muscle group, then an exercise</div>
       </button>
+      <button class="secondary" style="width:100%;margin-bottom:8px;text-align:left" onclick="openEditCurrentExercise()">
+        <strong>Edit sets / reps for today</strong><div class="small">Change this workout only</div>
+      </button>
+      <button class="secondary" style="width:100%;margin-bottom:8px;text-align:left" onclick='openEditExerciseDefaults(${JSON.stringify(ex.name)},"replace",${idx})'>
+        <strong>Edit exercise defaults</strong><div class="small">Change future sets, reps, rest or muscle assignment</div>
+      </button>
       <button class="secondary" style="width:100%;margin-bottom:8px" onclick="moveExercise(1)">Move current exercise down</button>
       <button class="secondary" style="width:100%;margin-bottom:8px" onclick="moveExercise(-1)">Move current exercise up</button>
       <button class="secondary" style="width:100%;margin-bottom:8px" onclick="setDefaultRest()">Set default rest</button>
@@ -859,8 +1063,9 @@ function skipExercise(){
   const idx=state.current.exerciseIndex;
   state.current.exercises[idx].skipped=true;
   state.current.logs[idx].skipped=true;
-  if(idx < state.current.exercises.length-1){
-    state.current.exerciseIndex++;
+  const next=nextPendingExerciseIndex(idx);
+  if(next!==-1){
+    state.current.exerciseIndex=next;
     state.current.restUntil=null;
     save();go("live");
   } else {
@@ -869,13 +1074,51 @@ function skipExercise(){
 }
 
 function moveExercise(direction){
-  const idx=state.current.exerciseIndex;
+  moveExerciseAt(state.current.exerciseIndex,direction);
+}
+
+function moveExerciseAt(idx,direction){
   const ni=idx+direction;
   if(ni<0 || ni>=state.current.exercises.length){toast("Cannot move further");return;}
+  const movingCurrent=idx===state.current.exerciseIndex;
+  const currentLog=state.current.logs[state.current.exerciseIndex];
   [state.current.exercises[idx],state.current.exercises[ni]]=[state.current.exercises[ni],state.current.exercises[idx]];
   [state.current.logs[idx],state.current.logs[ni]]=[state.current.logs[ni],state.current.logs[idx]];
-  state.current.exerciseIndex=ni;
+  if(movingCurrent && direction>0){
+    // Moving an unavailable current exercise down should immediately open the
+    // exercise that has taken its place, while keeping any logged sets intact.
+    state.current.exerciseIndex=idx;
+    state.current.restUntil=null;
+  }else{
+    state.current.exerciseIndex=state.current.logs.indexOf(currentLog);
+  }
   save();go("live");
+}
+
+function workingSetsAt(index){
+  return (state.current?.logs?.[index]?.sets||[]).filter(s=>s.setType!=="warmup").length;
+}
+function exerciseCompleteAt(index){
+  const ex=state.current?.exercises?.[index];
+  const log=state.current?.logs?.[index];
+  return !!(ex && (ex.skipped || log?.skipped || workingSetsAt(index)>=Number(ex.sets||0)));
+}
+function queueStatusAt(index){
+  const ex=state.current?.exercises?.[index];
+  if(!ex)return "";
+  if(ex.skipped || state.current.logs?.[index]?.skipped)return "Skipped";
+  if(index===state.current.exerciseIndex)return "Current";
+  if(exerciseCompleteAt(index))return "Done";
+  const n=workingSetsAt(index);
+  return n?`${n}/${ex.sets} sets`:"";
+}
+function nextPendingExerciseIndex(fromIndex){
+  const total=state.current?.exercises?.length||0;
+  for(let step=1;step<total;step++){
+    const i=(fromIndex+step)%total;
+    if(!exerciseCompleteAt(i))return i;
+  }
+  return -1;
 }
 
 function completeSet(){
@@ -914,9 +1157,8 @@ function completeSet(){
 
   const workingCount=log.sets.filter(s=>s.setType!=="warmup").length;
   if(workingCount>=ex.sets){
-    let next=state.current.exerciseIndex+1;
-    while(next<exercises.length && exercises[next].skipped) next++;
-    if(next < exercises.length){
+    const next=nextPendingExerciseIndex(state.current.exerciseIndex);
+    if(next!==-1){
       state.current.exerciseIndex=next;
       state.current.restUntil=Date.now()+ex.rest*1000;
     } else {
@@ -932,16 +1174,30 @@ function restScreen(){
   const idx=state.current.exerciseIndex;
   const exercises=state.current.exercises || (state.program.find(x=>x.id===state.current.workoutId)?.exercises||[]);
   const ex=exercises[idx];
+  const log=state.current.logs[idx];
   const remaining=Math.max(0,Math.ceil((state.current.restUntil-Date.now())/1000));
   const total = state.current.logs[Math.max(0,idx-(state.current.logs[idx].sets.length?0:1))]?.rest || ex.rest;
   const pct=Math.max(0,Math.min(100,remaining/Math.max(total,1)*100));
+  const working=(log.sets||[]).filter(s=>s.setType!=="warmup");
+  const setNo=working.length+1;
+  const suggestion=nextSetSuggestion(ex,log)||sessionStartSuggestion(ex.name)?.suggestion;
+  const lastSet=working[working.length-1];
+  setTimeout(startWorkoutTicker,0);
   setTimeout(()=>{ if(state.current && state.current.restUntil && state.current.restUntil<=Date.now()){ state.current.restUntil=null;save();notify("Rest complete",`Next set: ${ex.name}`);render(); } else render(); },1000);
   return shell(state.current.name,"Rest timer",
-    `<section class="card timer-wrap">
+    `<section class="workout-clock-strip"><span>SESSION</span><strong id="workoutElapsed">${state.current.backdated?"Backdated":workoutElapsedText()}</strong></section>
+    <section class="card timer-wrap">
       <div class="counter">REST</div>
       <div class="timer-ring" style="--pct:${pct}%"><div class="timer-value">${fmtSec(remaining)}</div></div>
-      <h3>Up next: ${ex.name}</h3>
-      <div class="meta">Set ${state.current.logs[idx].sets.length+1} of ${ex.sets} · ${ex.repMin}–${ex.repMax} reps</div>
+      <div class="section-kicker" style="margin-bottom:5px">UP NEXT · SET ${setNo} OF ${ex.sets}</div>
+      <h3 style="font-size:23px;margin-bottom:6px">${ex.name}</h3>
+      <div class="meta">${ex.repMin}–${ex.repMax} reps</div>
+      ${suggestion?`<div class="next-load-card">
+        <span>Suggested next load</span>
+        <strong>${formatSuggestion(suggestion)}</strong>
+        <small>${suggestion.reason||"Based on your previous performance"}</small>
+        ${lastSet?`<small>Last set: ${formatSet(lastSet,ex.name)}</small>`:""}
+      </div>`:""}
       <div class="row" style="margin-top:18px">
         <button class="secondary" style="flex:1" onclick="skipRest()">Skip rest</button>
         <button class="primary" style="flex:1;margin-top:0" onclick="addRest(30)">+30 sec</button>
@@ -949,7 +1205,6 @@ function restScreen(){
     </section>`,
   "home");
 }
-
 function skipRest(){state.current.restUntil=null;save();render()}
 function addRest(s){state.current.restUntil+=s*1000;save();render()}
 function cancelWorkout(){ if(confirm("Cancel this workout?")){state.current=null;save();go("home")} }
@@ -1000,53 +1255,58 @@ function summary(){
       </div>
       <button class="primary" onclick="go('analysis')">VIEW ANALYSIS</button>
     </section>
-    ${pbs.length?`<section class="card"><h3>PBs</h3>${pbs.map(p=>`<div class="workout-row between"><strong>${p.name}</strong><span class="good">${p.label}</span></div>`).join("")}</section>`:""}`,
+    ${pbs.length?`<section class="card"><div class="between"><h3>Personal bests</h3><span class="badge">${pbs.length} new</span></div><div class="pb-grid">${pbs.map(pbCard).join("")}</div></section>`:""}`,
   "history");
 }
 
 function findPBs(h){
   const out=[];
-  h.logs.forEach(l=>{
+  (h.logs||[]).forEach(l=>{
     const working=(l.sets||[]).filter(s=>s.setType!=="warmup");
     if(!working.length)return;
-    const prev=state.history.filter(x=>x.id!==h.id && x.end<h.end).flatMap(x=>x.logs).filter(x=>x.name===l.name);
+    const prev=state.history.filter(x=>x.id!==h.id && x.end<h.end).flatMap(x=>x.logs||[]).filter(x=>x.name===l.name);
     const prevSets=prev.flatMap(x=>(x.sets||[]).filter(s=>s.setType!=="warmup"));
-
-    // The first logged session establishes a baseline. PBs begin from session two.
     if(!prevSets.length) return;
 
     if(working.some(s=>s.assistWeight!=null)){
-      const best=Math.min(...working.filter(s=>s.assistWeight!=null).map(s=>s.assistWeight));
-      const prevBest=prevSets.some(s=>s.assistWeight!=null)?Math.min(...prevSets.filter(s=>s.assistWeight!=null).map(s=>s.assistWeight)):Infinity;
-      if(best<prevBest) out.push({name:l.name,label:`Lowest assistance ${best} kg`});
+      const best=Math.min(...working.filter(s=>s.assistWeight!=null).map(s=>Number(s.assistWeight)));
+      const old=prevSets.some(s=>s.assistWeight!=null)?Math.min(...prevSets.filter(s=>s.assistWeight!=null).map(s=>Number(s.assistWeight))):Infinity;
+      if(best<old) out.push({name:l.name,primary:l.primary,type:"assistance",title:"ASSISTANCE PB",value:`${best} kg assistance`,previous:`Previous ${old} kg`,change:`↓ ${(old-best).toFixed(1)} kg assistance`});
       return;
     }
+
     if(working.some(s=>s.addedWeight!=null)){
-      const best=Math.max(...working.filter(s=>s.addedWeight!=null).map(s=>s.addedWeight));
-      const prevBest=prevSets.some(s=>s.addedWeight!=null)?Math.max(...prevSets.filter(s=>s.addedWeight!=null).map(s=>s.addedWeight)):-Infinity;
-      if(best>prevBest) out.push({name:l.name,label:`Added-weight PB +${best} kg`});
+      const best=Math.max(...working.filter(s=>s.addedWeight!=null).map(s=>Number(s.addedWeight)));
+      const old=prevSets.some(s=>s.addedWeight!=null)?Math.max(...prevSets.filter(s=>s.addedWeight!=null).map(s=>Number(s.addedWeight))):-Infinity;
+      if(best>old) out.push({name:l.name,primary:l.primary,type:"weight",title:"WEIGHT PB",value:`+${best} kg`,previous:`Previous +${old} kg`,change:`+${(best-old).toFixed(1)} kg`});
       return;
     }
 
-    const weightPB=Math.max(...working.map(s=>s.weight||0));
-    const prevWeight=prevSets.length?Math.max(...prevSets.map(s=>s.weight||0)):0;
-    if(weightPB>prevWeight) out.push({name:l.name,label:`Weight PB ${weightPB} kg`});
+    const weighted=working.filter(s=>Number(s.weight)>0 && Number(s.reps)>0);
+    const prevWeighted=prevSets.filter(s=>Number(s.weight)>0 && Number(s.reps)>0);
+    if(!weighted.length || !prevWeighted.length) return;
 
-    const bestE=Math.max(...working.map(s=>e1rm(s.weight,s.reps)));
-    const prevE=prevSets.length?Math.max(...prevSets.map(s=>e1rm(s.weight,s.reps))):0;
-    if(bestE>prevE) out.push({name:l.name,label:`e1RM PB ${bestE} kg`});
+    const weightPB=Math.max(...weighted.map(s=>Number(s.weight)));
+    const prevWeight=Math.max(...prevWeighted.map(s=>Number(s.weight)));
+    if(weightPB>prevWeight){
+      out.push({name:l.name,primary:l.primary,type:"weight",title:"WEIGHT PB",value:`${weightPB} kg`,previous:`Previous ${prevWeight} kg`,change:`+${(weightPB-prevWeight).toFixed(1)} kg`});
+    }
 
-    const volume=working.reduce((a,s)=>a+(s.weight||0)*s.reps,0);
-    const prevVolumes=prev.map(x=>(x.sets||[]).filter(s=>s.setType!=="warmup").reduce((a,s)=>a+(s.weight||0)*s.reps,0));
-    if(volume>Math.max(0,...prevVolumes)) out.push({name:l.name,label:`Volume PB ${Math.round(volume)} kg`});
-
-    working.forEach(s=>{
-      const prevRepsAtWeight=Math.max(0,...prevSets.filter(p=>p.weight===s.weight).map(p=>p.reps||0));
-      if((s.weight||0)>0 && s.reps>prevRepsAtWeight) out.push({name:l.name,label:`Rep PB ${s.weight} kg × ${s.reps}`});
-    });
+    const bestE=Math.max(...weighted.map(s=>e1rm(Number(s.weight),Number(s.reps))));
+    const prevE=Math.max(...prevWeighted.map(s=>e1rm(Number(s.weight),Number(s.reps))));
+    if(bestE>prevE){
+      const pct=prevE?((bestE-prevE)/prevE*100):0;
+      out.push({name:l.name,primary:l.primary,type:"e1rm",title:"1RM PB",value:`${bestE} kg`,previous:`Previous ${prevE} kg`,change:`+${pct.toFixed(1)}%`});
+    }
   });
-  const seen=new Set();
-  return out.filter(p=>{const k=p.name+"|"+p.label;if(seen.has(k))return false;seen.add(k);return true});
+  return out;
+}
+function pbCard(p){
+  return `<div class="pb-card">
+    <div class="pb-icon">${muscleIcon(p.primary)}</div>
+    <div class="pb-main"><span>${p.title}</span><strong>${p.name}</strong><div class="pb-value">${p.value}</div><small>${p.previous}</small></div>
+    <div class="pb-change">${p.change}</div>
+  </div>`;
 }
 
 function analysis(){
@@ -1059,7 +1319,11 @@ function analysis(){
   });
   const week=weeklyMuscleTotals();
   return shell("Workout Analysis",h.name,
-    `<section class="card"><h3>Effective muscle sets</h3>
+    `<section class="card">
+      <div class="between"><div><div class="section-kicker">Session heat map</div><h3 style="margin:0">Muscles trained</h3></div><span class="badge">${Object.keys(muscle).length} groups</span></div>
+      ${muscleBodySVG(muscle)}
+    </section>
+    <section class="card"><h3>Effective muscle sets</h3>
       <div class="small" style="margin-bottom:12px">Primary muscles count as full sets; meaningful secondary involvement receives fractional credit.</div>
       ${Object.entries(muscle).sort((a,b)=>b[1]-a[1]).map(([m,n])=>{const t=TARGETS[m]||[0,Math.max(1,Math.ceil(n))],current=week[m]||0,pct=Math.min(100,current/Math.max(1,t[0])*100);return `<div class="muscle-row"><strong>${m}</strong><div class="progress"><span style="width:${pct}%"></span></div><span class="small">${n.toFixed(n%1?1:0)} today</span></div>`}).join("")}
     </section>
@@ -1169,42 +1433,167 @@ function sparklineSVG(points){
   </svg>`;
 }
 
+const TREND_METRICS={
+  weight:{label:"Weight",unit:"kg",decimals:1},
+  calories:{label:"Calories",unit:"kcal",decimals:0},
+  protein:{label:"Protein",unit:"g",decimals:0},
+  carbs:{label:"Carbs",unit:"g",decimals:0},
+  fat:{label:"Fat",unit:"g",decimals:0},
+  waist:{label:"Waist",unit:"cm",decimals:1}
+};
+function trendMetricConfig(key){
+  const base=TREND_METRICS[key]||TREND_METRICS.weight,t=state.macroTargets;
+  const target=key==="calories"?calorieTarget():(key==="protein"?t.protein:(key==="carbs"?t.carbs:(key==="fat"?t.fat:null)));
+  return {...base,key,target};
+}
+function checkinMetricValue(c,key){
+  if(key==="calories"){
+    if(c.protein==null && c.carbs==null && c.fat==null)return null;
+    return macroCalories(c);
+  }
+  if(c[key]==null || c[key]==="")return null;
+  const value=Number(c[key]);
+  return Number.isFinite(value)?value:null;
+}
+function progressRangeStart(range,now=new Date()){
+  const d=new Date(now);d.setHours(0,0,0,0);
+  if(range==="7D")d.setDate(d.getDate()-6);
+  else if(range==="1M")d.setDate(d.getDate()-29);
+  else if(range==="3M")d.setDate(d.getDate()-89);
+  else d.setFullYear(d.getFullYear()-1);
+  return d;
+}
+function progressTrendPoints(key,range){
+  const now=new Date(),start=progressRangeStart(range,now),raw=(state.checkins||[]).map(c=>({
+    date:c.date,value:checkinMetricValue(c,key),time:new Date(c.date+"T12:00:00").getTime()
+  })).filter(p=>p.value!=null && p.time>=start.getTime() && p.time<=now.getTime()+86400000).sort((a,b)=>a.time-b.time);
+  if(range==="7D" || range==="1M")return raw.map(p=>({...p,label:new Date(p.date+"T12:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}));
+  const buckets=new Map();
+  raw.forEach(p=>{
+    const d=new Date(p.date+"T12:00:00");
+    const keyName=range==="3M"?String(Math.floor((p.time-start.getTime())/(7*86400000))):`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    if(!buckets.has(keyName))buckets.set(keyName,[]);
+    buckets.get(keyName).push(p);
+  });
+  return [...buckets.values()].map(items=>{
+    const value=items.reduce((a,p)=>a+p.value,0)/items.length;
+    const date=items[items.length-1].date,time=items[items.length-1].time;
+    const firstDate=new Date(items[0].date+"T12:00:00");
+    const label=range==="3M"?`Week of ${firstDate.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}`:firstDate.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+    return {date,time,value,label};
+  });
+}
+function formatTrendValue(value,config){
+  if(value==null || !Number.isFinite(Number(value)))return "—";
+  return `${Number(value).toFixed(config.decimals)}${config.unit==="kcal"?" ":""}${config.unit}`;
+}
+function setProgressMetric(metric){
+  if(!TREND_METRICS[metric])return;
+  state.progressMetric=metric;state.progressPoint=-1;save();render();
+}
+function setProgressRange(range){
+  if(!["7D","1M","3M","1Y"].includes(range))return;
+  state.progressRange=range;state.progressPoint=-1;save();render();
+}
+function selectTrendPoint(index){state.progressPoint=index;save();render();}
+function trendChartHTML(points,config){
+  if(!points.length)return `<div class="trend-empty"><strong>No ${config.label.toLowerCase()} entries yet</strong><span>Add entries from Home or the calendar.</span></div>`;
+  const values=points.map(p=>p.value),scaleValues=config.target?[...values,config.target]:values;
+  let min=Math.min(...scaleValues),max=Math.max(...scaleValues),range=max-min;
+  if(range===0){range=Math.max(1,Math.abs(max)*.04);min-=range;max+=range;}else{min-=range*.14;max+=range*.14;}
+  const w=340,h=205,left=10,right=18,top=18,bottom=32,plotW=w-left-right,plotH=h-top-bottom;
+  const start=progressRangeStart(state.progressRange).getTime(),end=new Date().setHours(23,59,59,999),timeRange=Math.max(1,end-start);
+  const coords=points.map(p=>({x:left+Math.max(0,Math.min(1,(p.time-start)/timeRange))*plotW,y:top+(max-p.value)/(max-min)*plotH}));
+  const line=coords.map((c,i)=>`${i?"L":"M"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
+  const selected=Math.max(0,Math.min(points.length-1,state.progressPoint>=0?state.progressPoint:points.length-1));
+  const selectedPoint=points[selected],selectedCoord=coords[selected],targetY=config.target==null?null:top+(max-config.target)/(max-min)*plotH;
+  const startLabel=new Date(start).toLocaleDateString(undefined,{day:"numeric",month:"short"});
+  const endLabel=new Date().toLocaleDateString(undefined,{day:"numeric",month:"short"});
+  return `<div class="trend-chart-wrap">
+    <div class="trend-tooltip" style="left:${Math.max(19,Math.min(81,selectedCoord.x/w*100))}%">
+      <strong>${formatTrendValue(selectedPoint.value,config)}</strong><span>${selectedPoint.label}</span>
+    </div>
+    <svg class="trend-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${config.label} trend">
+      ${[0,.5,1].map(n=>`<line x1="${left}" x2="${w-right}" y1="${top+n*plotH}" y2="${top+n*plotH}" class="trend-grid-line"/>`).join("")}
+      ${targetY==null?"":`<line x1="${left}" x2="${w-right}" y1="${targetY}" y2="${targetY}" class="trend-target-line"/><text x="${w-right}" y="${Math.max(10,targetY-5)}" text-anchor="end" class="trend-target-label">Target ${formatTrendValue(config.target,config)}</text>`}
+      ${points.length>1?`<path d="${line}" class="trend-line"/>`:""}
+      ${coords.map((c,i)=>`<circle cx="${c.x}" cy="${c.y}" r="${i===selected?5:3.5}" class="trend-dot ${i===selected?"selected":""}" onclick="selectTrendPoint(${i})"><title>${formatTrendValue(points[i].value,config)} · ${points[i].label}</title></circle>`).join("")}
+      <text x="${left}" y="${h-8}" class="trend-axis-label">${startLabel}</text><text x="${w-right}" y="${h-8}" text-anchor="end" class="trend-axis-label">${endLabel}</text>
+    </svg>
+  </div>`;
+}
+function strengthImprovements(){
+  const byExercise=new Map();
+  [...(state.history||[])].sort((a,b)=>(a.end||a.start||0)-(b.end||b.start||0)).forEach(h=>(h.logs||[]).forEach(log=>{
+    const metric=bestPerformanceMetric(log);if(!metric)return;
+    if(!byExercise.has(log.name))byExercise.set(log.name,[]);
+    byExercise.get(log.name).push({metric,time:h.end||h.start||0,primary:log.primary});
+  }));
+  const out=[];
+  byExercise.forEach((entries,name)=>{
+    if(entries.length<2)return;
+    const latest=entries[entries.length-1];
+    let previous=null;
+    for(let i=entries.length-2;i>=0;i--){if(entries[i].metric.type===latest.metric.type){previous=entries[i];break;}}
+    if(!previous)return;
+    const a=latest.metric,b=previous.metric,date=new Date(latest.time).toLocaleDateString(undefined,{day:"numeric",month:"short"});
+    if(a.type==="assist"){
+      const drop=b.value-a.value;
+      if(drop>0)out.push({name,primary:latest.primary,time:latest.time,kicker:"ASSISTANCE DOWN",change:`↓ ${drop.toFixed(1)}kg`,detail:`${b.value} → ${a.value} kg assistance · ${date}`,score:drop});
+      else if(drop===0 && Number(a.reps)>Number(b.reps)){
+        const reps=Number(a.reps)-Number(b.reps);out.push({name,primary:latest.primary,time:latest.time,kicker:"REPS UP",change:`↑ ${reps}`,detail:`${b.reps} → ${a.reps} reps at ${a.value}kg assistance · ${date}`,score:reps});
+      }
+    }else if(a.type==="added"){
+      const gain=a.value-b.value;
+      if(gain>0)out.push({name,primary:latest.primary,time:latest.time,kicker:"ADDED WEIGHT UP",change:`↑ ${gain.toFixed(1)}kg`,detail:`+${b.value} → +${a.value} kg · ${date}`,score:gain});
+      else if(gain===0 && Number(a.reps)>Number(b.reps)){
+        const reps=Number(a.reps)-Number(b.reps);out.push({name,primary:latest.primary,time:latest.time,kicker:"REPS UP",change:`↑ ${reps}`,detail:`${b.reps} → ${a.reps} reps at +${a.value}kg · ${date}`,score:reps});
+      }
+    }else{
+      const pct=b.value?((a.value-b.value)/b.value*100):0;
+      if(pct>0.05)out.push({name,primary:latest.primary,time:latest.time,kicker:"ESTIMATED 1RM UP",change:`↑ ${pct.toFixed(1)}%`,detail:`${b.value.toFixed(1)} → ${a.value.toFixed(1)} kg e1RM · ${date}`,score:pct});
+    }
+  });
+  return out.sort((a,b)=>b.time-a.time||b.score-a.score).slice(0,8);
+}
+function strengthImprovementHTML(items){
+  if(!items.length)return `<div class="trend-empty compact"><strong>No comparable improvements yet</strong><span>Complete the same exercise twice to start seeing strength cards.</span></div>`;
+  return `<div class="improvement-grid">${items.map(x=>`<div class="improvement-card"><div class="improvement-icon">${x.change.startsWith("↓")?"↓":"↑"}</div><div class="improvement-main"><span>${x.kicker}</span><strong>${x.name}</strong><small>${x.detail}</small></div><div class="improvement-change">${x.change}</div></div>`).join("")}</div>`;
+}
 function stats(){
-  const lifts=["Bench Press","Back Squat","Deadlift","Overhead Press","Assisted Pull-Ups","Weighted Pull-Ups","Assisted Dips","Dips","Barbell Row","Seated Chest Press"];
-  const cards=lifts.map(name=>{
-    const pts=state.history.map(h=>{
-      const l=(h.logs||[]).find(x=>x.name===name&&(x.sets||[]).length),m=l?bestPerformanceMetric(l):null;
-      return m?{t:h.end,v:m.value,type:m.type,label:m.label}:null;
-    }).filter(Boolean);
-    if(!pts.length)return "";
-    const latest=pts[pts.length-1],first=pts[0];let trendText="",trendClass="good";
-    if(latest.type==="assist"){const d=first.v-latest.v;trendClass=d>=0?"good":"bad";trendText=`${d>=0?"↓":"↑"} ${Math.abs(d).toFixed(1)} kg assistance`;}
-    else if(latest.type==="added"){const d=latest.v-first.v;trendClass=d>=0?"good":"bad";trendText=`${d>=0?"↑":"↓"} ${Math.abs(d).toFixed(1)} kg added`;}
-    else{const d=first.v?((latest.v-first.v)/first.v*100):0;trendClass=d>=0?"good":"bad";trendText=`${d>=0?"↑":"↓"} ${Math.abs(d).toFixed(1)}%`;}
-    return `<section class="card"><div class="chart-title"><div><div class="section-kicker">Strength trend</div><h3 style="margin:0">${name}</h3></div><div class="pill-score"><strong>${latest.label}</strong></div></div><div class="chart">${sparklineSVG(pts)}<div class="${trendClass}" style="font-weight:800;font-size:12px">${trendText} from first log</div></div></section>`;
-  }).join("");
-  const m=weeklyMuscleTotals(),week=last7Checkins(),t=state.macroTargets;
-  const proteinAvg=avg(week,"protein"),carbAvg=avg(week,"carbs"),fatAvg=avg(week,"fat"),wtAvg=avg(week,"weight");
-  return shell("Progress","Strength, volume, bodyweight & nutrition",
+  const m=weeklyMuscleTotals(),config=trendMetricConfig(state.progressMetric),points=progressTrendPoints(config.key,state.progressRange),improvements=strengthImprovements();
+  const vals=points.map(p=>p.value),latest=vals[vals.length-1],average=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null,highest=vals.length?Math.max(...vals):null,lowest=vals.length?Math.min(...vals):null;
+  const latestWeight=[...(state.checkins||[])].filter(c=>Number(c.weight)>0).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
+  const latestWaist=[...(state.checkins||[])].filter(c=>Number(c.waist)>0).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
+  return shell("Progress","Strength, bodyweight & nutrition trends",
     `<section class="card">
-      <div class="between"><h3>7-day nutrition</h3><button class="secondary" onclick="editMacroTargets()">Targets</button></div>
-      <div class="metric-grid">
-        <div class="metric"><strong>${proteinAvg?proteinAvg.toFixed(0):"—"}g</strong><span>Protein avg / ${t.protein}g</span></div>
-        <div class="metric"><strong>${carbAvg?carbAvg.toFixed(0):"—"}g</strong><span>Carbs avg / ${t.carbs}g</span></div>
-        <div class="metric"><strong>${fatAvg?fatAvg.toFixed(0):"—"}g</strong><span>Fat avg / ${t.fat}g</span></div>
-        <div class="metric"><strong>${wtAvg?wtAvg.toFixed(1):"—"}kg</strong><span>7-day weight average</span></div>
+      <div class="between"><div><div class="section-kicker">Current measurements</div><h3 style="margin:0">Body composition</h3></div><span class="badge">Latest</span></div>
+      <div class="metric-grid" style="margin-top:12px">
+        <div class="metric"><strong>${latestWeight?Number(latestWeight.weight).toFixed(1):"—"}kg</strong><span>Latest bodyweight</span></div>
+        <div class="metric"><strong>${latestWaist?Number(latestWaist.waist).toFixed(1):"—"}cm</strong><span>Waist · belly button</span></div>
       </div>
-      <div style="margin-top:16px">${nutritionWeekHTML(week,t)}</div>
     </section>
-    ${cards||`<section class="card empty">Log a few workouts to build strength charts.</section>`}
+    <section class="card">
+      <div class="between"><div><div class="section-kicker">Recent strength</div><h3 style="margin:0">Improvements</h3></div><span class="badge">Latest vs previous</span></div>
+      <div style="margin-top:12px">${strengthImprovementHTML(improvements)}</div>
+    </section>
+    <section class="card trend-card">
+      <div class="between"><div><div class="section-kicker">Body & nutrition</div><h3 style="margin:0">${config.label} trend</h3></div>${config.target?`<button class="secondary" onclick="editMacroTargets()">Target ${formatTrendValue(config.target,config)}</button>`:`<span class="badge">${state.progressRange}</span>`}</div>
+      <div class="trend-tabs metric-tabs">${Object.entries(TREND_METRICS).map(([key,item])=>`<button class="${config.key===key?"active":""}" onclick="setProgressMetric('${key}')">${item.label}</button>`).join("")}</div>
+      <div class="trend-tabs range-tabs">${["7D","1M","3M","1Y"].map(range=>`<button class="${state.progressRange===range?"active":""}" onclick="setProgressRange('${range}')">${range}</button>`).join("")}</div>
+      <div class="metric-grid trend-summary">
+        <div class="metric"><strong>${formatTrendValue(latest,config)}</strong><span>Latest</span></div>
+        <div class="metric"><strong>${formatTrendValue(average,config)}</strong><span>Average</span></div>
+        <div class="metric"><strong>${formatTrendValue(highest,config)}</strong><span>Highest</span></div>
+        <div class="metric"><strong>${formatTrendValue(lowest,config)}</strong><span>Lowest</span></div>
+      </div>
+      ${trendChartHTML(points,config)}
+      ${config.key==="calories"?`<div class="small trend-note">Calories are calculated automatically: protein × 4 + carbs × 4 + fat × 9.</div>`:""}
+    </section>
     <section class="card"><div class="between"><h3>Weekly muscle volume</h3><span class="badge">Effective sets</span></div>
-      ${Object.entries(TARGETS).map(([name,tg])=>{const n=m[name]||0,p=Math.min(100,n/tg[0]*100);return `<div class="muscle-row"><strong>${name}</strong><div class="progress"><span style="width:${p}%"></span></div><span class="small">${n.toFixed(n%1?1:0)} / ${tg[0]} min</span></div>`}).join("")}
+      ${Object.entries(TARGETS).map(([name,tg])=>{const n=m[name]||0,p=Math.min(100,n/tg[0]*100);return `<div class="muscle-row"><strong>${name}</strong><div class="progress"><span style="width:${p}%"></span></div><span class="small">${n.toFixed(n%1?1:0)} / ${tg[0]} sets</span></div>`}).join("")}
     </section>`,
   "stats");
-}
-function nutritionWeekHTML(week,t){
-  const rows=[["Protein","protein",t.protein],["Carbs","carbs",t.carbs],["Fat","fat",t.fat]];
-  return rows.map(([label,key,target])=>`<div style="margin:14px 0"><div class="between"><strong>${label}</strong><span class="small">Target ${target}g</span></div><div class="week-bars">${week.map(c=>{const d=new Date(c.date+"T12:00:00"),day=d.toLocaleDateString(undefined,{weekday:"narrow"}),v=Number(c[key])||0,pct=Math.min(120,v/target*100);return `<div class="week-bar"><div class="week-bar-fill" style="height:${Math.max(4,pct)}%"></div><span>${day}</span><small>${v||"—"}</small></div>`}).join("")}</div></div>`).join("");
 }
 function editMacroTargets(){
   const p=parseInt(prompt("Protein target (g):",state.macroTargets.protein));if(!(p>0))return;
@@ -1274,6 +1663,13 @@ function importData(event){
         state=incoming;
         if(!state.route) state.route="home";
         if(!state.selectedProgram && state.program[0]) state.selectedProgram=state.program[0].id;
+        if(!state.customExercises)state.customExercises=[];
+        if(!state.exercisePrefs)state.exercisePrefs={};
+        if(!state.checkins)state.checkins=[];
+        if(!state.macroTargets)state.macroTargets={protein:190,carbs:250,fat:80};
+        if(!state.progressMetric)state.progressMetric="weight";
+        if(!state.progressRange)state.progressRange="7D";
+        state.progressPoint=-1;
         save();
         toast("Backup restored");
         setTimeout(()=>go("home"),500);
@@ -1316,6 +1712,7 @@ window.go=go; window.startWorkout=startWorkout; window.completeSet=completeSet; 
 window.cancelWorkout=cancelWorkout; window.exportData=exportData; window.importData=importData; window.resetAll=resetAll;
 window.openExerciseMenu=openExerciseMenu; window.openAllExercises=openAllExercises; window.swapExercise=swapExercise;
 window.addExercise=addExercise; window.skipExercise=skipExercise; window.moveExercise=moveExercise;
+window.moveExerciseAt=moveExerciseAt;
 window.setLoadMode=setLoadMode; window.editSet=editSet; window.deleteSet=deleteSet; window.finishWorkoutEarly=finishWorkoutEarly; window.setDefaultRest=setDefaultRest;
 window.saveCheckin=saveCheckin;window.buildTopUp=buildTopUp;window.startBlankCustom=startBlankCustom;
 window.addToBlankCustom=addToBlankCustom;window.launchBlankCustom=launchBlankCustom;window.editMacroTargets=editMacroTargets;
@@ -1325,6 +1722,11 @@ window.openCustomExerciseForm=openCustomExerciseForm;window.saveCustomExerciseFr
 window.openCalendarDate=openCalendarDate;window.saveCheckinForDate=saveCheckinForDate;
 window.chooseBackdatedWorkout=chooseBackdatedWorkout;window.createBackdatedWorkout=createBackdatedWorkout;
 window.createBackdatedCustomWorkout=createBackdatedCustomWorkout;
+window.saveWeeklyWaist=saveWeeklyWaist;
+window.openEditExerciseDefaults=openEditExerciseDefaults;window.saveExerciseDefaults=saveExerciseDefaults;
+window.openEditCurrentExercise=openEditCurrentExercise;window.saveCurrentExercisePlan=saveCurrentExercisePlan;
+window.updateAutoCalories=updateAutoCalories;
+window.setProgressMetric=setProgressMetric;window.setProgressRange=setProgressRange;window.selectTrendPoint=selectTrendPoint;
 render();
 
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
