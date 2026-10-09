@@ -1,7 +1,7 @@
-const CACHE = "gym-tracker-v7-4";
+const CACHE = "reptrace-v8-9";
 const ASSETS = [
-  "./","index.html","styles.css?v=7.4","app.js?v=7.4","manifest.json",
-  "icon-192.png","icon-512.png","apple-touch-icon.png"
+  "./","index.html","styles.css?v=8.9","anatomy-data.js?v=8.9","app.js?v=8.9","manifest.json","anatomy-front.webp","anatomy-back.webp","ANATOMY-LICENSE.txt",
+  "reptrace-icon-192.png","reptrace-icon-512.png","reptrace-apple-touch-icon.png"
 ];
 self.addEventListener("install", e => {
   self.skipWaiting();

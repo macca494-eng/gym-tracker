@@ -10,8 +10,8 @@
   --text:#f7f8f8;
   --muted:#8f99a2;
   --muted2:#69737c;
-  --accent:#caff3a;
-  --accent-soft:rgba(202,255,58,.13);
+  --accent:#b8ff24;
+  --accent-soft:rgba(184,255,36,.13);
   --good:#6ee7a2;
   --warn:#ffca69;
   --bad:#ff7a7a;
@@ -37,6 +37,13 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
   content:"";display:block;width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.06);
   margin:0 auto 16px
 }
+.brand-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.reptrace-lockup{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.reptrace-lockup>span{font-weight:950;font-size:15px;letter-spacing:.06em;line-height:1;color:var(--text)}
+.reptrace-mark{width:31px;height:27px;display:block;overflow:visible;filter:drop-shadow(0 0 8px rgba(184,255,36,.08))}
+.reptrace-mark-lime{fill:var(--accent)}
+.reptrace-mark-white{fill:var(--text)}
+.brand-tagline{font-size:7px;letter-spacing:.14em;color:var(--muted2);font-weight:850;white-space:nowrap}
 .title{font-size:30px;line-height:1.03;font-weight:850;letter-spacing:-.045em}
 .subtitle{color:var(--muted);font-size:13px;margin-top:7px;letter-spacing:.01em}
 .content{padding:14px 16px 24px}
@@ -176,6 +183,11 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 }
 
 .cal-head,.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center}
+.calendar-title-row{display:grid;grid-template-columns:38px minmax(0,1fr) 38px auto;align-items:center;gap:6px}
+.calendar-title-row h3{margin:0;text-align:center;white-space:nowrap}
+.calendar-nav{width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--panel2);color:var(--text);font-size:27px;line-height:1;font-weight:500}
+.calendar-nav:active:not(:disabled){background:var(--accent-soft);border-color:var(--accent)}
+.calendar-nav:disabled{opacity:.25;cursor:default}
 .cal-head{margin:8px 0 7px;color:var(--muted2);font-size:9px;font-weight:900;letter-spacing:.08em}
 .cal-day{aspect-ratio:1;border:none;border-radius:50%;background:transparent;color:var(--muted);font-weight:800}
 .cal-day.trained{background:var(--accent);color:#0a0d0f}
@@ -188,6 +200,7 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 .week-bar small{font-size:8px;color:var(--muted2)}
 
 .cal-day{cursor:pointer}.cal-day:hover{background:var(--accent-soft)}
+@media (max-width:390px){.calendar-title-row{grid-template-columns:34px minmax(0,1fr) 34px}.calendar-title-row .badge{grid-column:1/-1;justify-self:center}.calendar-nav{width:34px;height:34px}.calendar-title-row h3{font-size:18px}}
 
 .active-workout-card{
   border-color:rgba(202,255,58,.22);
@@ -209,8 +222,56 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
   border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;text-align:left;
 }
 .exercise-pick-card:last-child{border-bottom:none}
-.exercise-pick-card>span{font-size:26px;color:var(--accent)}
+.exercise-pick-card>span{font-size:14px;color:var(--accent);font-weight:900}
+.exercise-pick-card:disabled{opacity:.58;cursor:default}
+.custom-builder-summary{border-color:rgba(202,255,58,.2);background:linear-gradient(180deg,rgba(202,255,58,.06),#101418)}
+.custom-selected-list{display:grid;gap:8px;margin:14px 0}
+.custom-selected-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.custom-selected-row:last-child{border-bottom:none}
+.custom-selected-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:900}
+.custom-remove{color:var(--muted);font-size:11px;padding:9px}
 @media(max-width:360px){.muscle-card-grid{grid-template-columns:1fr}}
+
+.plan-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 2px 14px;padding:2px}
+.plan-toolbar .section-kicker{margin-bottom:4px}
+.compact-primary{width:auto;margin:0;padding:12px 15px;white-space:nowrap}
+.plan-card-actions{display:flex;gap:7px;flex-shrink:0}
+.plan-card-actions .secondary{padding:9px 11px;font-size:11px}
+.plan-card-actions .plan-use{border-color:rgba(202,255,58,.3);color:var(--accent)}
+.programme-editor-card{overflow:visible}
+.programme-field input{font-size:18px;letter-spacing:-.02em}
+.programme-field select{width:100%;background:transparent;color:var(--text);border:none;outline:none;font-size:18px;font-weight:850;padding:0}
+.programme-field select option{background:#101418;color:var(--text)}
+.programme-field.readonly-field{min-height:auto}
+.programme-minutes-value{font-size:18px}
+.programme-meta-grid{margin-top:10px}
+.programme-exercise-list{display:grid;margin-top:12px}
+.programme-exercise-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.programme-exercise-row:last-child{border-bottom:none}
+.programme-exercise-copy{min-width:0}
+.programme-exercise-copy strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.programme-row-actions{display:flex;align-items:center;gap:5px}
+.icon-action{width:31px;height:31px;border:1px solid var(--line);border-radius:10px;background:#0d1114;color:var(--text);font-weight:900}
+.icon-action:disabled{opacity:.25;cursor:default}
+.programme-add-exercise{width:100%;margin-top:13px;border-color:rgba(202,255,58,.22);color:var(--accent)}
+.grit-card{background:radial-gradient(circle at 86% 15%,rgba(202,255,58,.13),transparent 32%),linear-gradient(180deg,#151a1f,#101418)}
+.grit-ring{--grit:360deg;width:82px;height:82px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:conic-gradient(var(--accent) var(--grit),#252c32 0);position:relative}
+.grit-ring:after{content:"";position:absolute;inset:8px;border-radius:50%;background:#101418}
+.grit-ring strong{position:relative;z-index:1;font-size:19px;letter-spacing:-.04em}
+.grit-ring.grit-empty{background:#252c32;color:var(--muted)}
+.grit-next{display:flex;flex-direction:column;gap:3px;margin-top:14px;padding:12px 13px;border-radius:15px;background:rgba(202,255,58,.055);border:1px solid rgba(202,255,58,.15)}
+.grit-next span{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:900}
+.grit-next strong{font-size:16px;color:var(--accent)}
+.grit-next small{font-size:10px;color:var(--muted)}
+.grit-day-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:15px 0}
+.grit-day{border:1px solid var(--line2);background:#0d1114;color:var(--muted);padding:12px 5px;border-radius:13px;font-size:12px;font-weight:850}
+.grit-day.active{background:var(--accent);border-color:var(--accent);color:#090b0d}
+.grit-plan-card{border-color:rgba(202,255,58,.2)}
+@media(max-width:430px){
+  .plan-card-actions{flex-direction:column}.plan-card-actions .secondary{padding:8px 10px}
+  .programme-exercise-row{grid-template-columns:28px minmax(0,1fr)}
+  .programme-row-actions{grid-column:2;justify-content:flex-start}
+}
 
 .workout-clock-strip{
   display:flex;align-items:center;justify-content:flex-end;gap:8px;
@@ -221,11 +282,22 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
   color:var(--text);font-size:15px;font-variant-numeric:tabular-nums;
   border:1px solid var(--line2);background:#0d1114;border-radius:999px;padding:7px 10px;
 }
-.exercise-muscle-visual{margin:10px 0 -4px;padding:8px 8px 0;border-radius:16px;background:#0b0e11;border:1px solid rgba(255,255,255,.05)}
-.muscle-body{width:100%;height:auto;display:block}
-.muscle-body .body-base{fill:#30363b}
-.muscle-body .muscle-hi{fill:var(--accent)}
-.muscle-body text{fill:var(--muted2);font-size:9px;font-weight:800;letter-spacing:.08em}
+.exercise-muscle-visual{margin:10px 0 -4px;padding:10px 8px 2px;border-radius:18px;background:radial-gradient(circle at 50% 38%,rgba(102,117,128,.1),transparent 58%),#090c0e;border:1px solid rgba(255,255,255,.06)}
+.muscle-body{width:100%;height:auto;display:block;overflow:visible}
+.muscle-body .anatomy-render{opacity:.96}
+.muscle-body .body-outline{stroke:#57616a;stroke-width:1.25;stroke-linejoin:round;stroke-linecap:round}
+.muscle-body .body-rim{fill:none;stroke:rgba(235,244,248,.21);stroke-width:.8;stroke-linecap:round}
+.muscle-body .anatomy-lines{fill:none;stroke:#101519;stroke-width:1.05;stroke-linecap:round;opacity:.86;pointer-events:none}
+.muscle-body .muscle-hi{mix-blend-mode:screen}
+.muscle-body .muscle-hi path{stroke:rgba(226,255,137,.78);stroke-width:.52;stroke-linejoin:round;transition:opacity .2s ease;paint-order:stroke fill}
+.muscle-body text{fill:#7f8992;font-size:8px;font-weight:850;letter-spacing:.16em}
+.muscle-body-v82{overflow:hidden}
+.muscle-body-v82 .anatomy-person{overflow:visible}
+.muscle-body-v82 .anatomy-person image{opacity:.98}
+.muscle-body-v82 .anatomy-highlight{
+  fill:#b8ff24;stroke:none;mix-blend-mode:screen;
+}
+.muscle-body-v82 text{font-size:15px;fill:#89939c}
 .next-load-card{
   margin:14px auto 0;max-width:360px;text-align:left;
   border:1px solid rgba(202,255,58,.22);background:rgba(202,255,58,.07);
@@ -257,7 +329,52 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
   padding:8px 10px;border-radius:11px
 }
 .mini-trend{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)}
-.muscle-picker-visual .muscle-body{max-height:175px}
+.muscle-picker-visual{background:radial-gradient(circle at 50% 52%,rgba(202,255,58,.045),transparent 50%),linear-gradient(180deg,rgba(21,26,31,.98),rgba(11,15,18,.98))}
+.muscle-picker-visual .muscle-body{max-height:218px;margin:7px auto 0}
+
+/* REPTRACE home dashboard */
+.home-start{
+  width:100%;min-height:54px;margin:1px 0 13px;padding:0 18px;border:0;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;position:relative;
+  background:linear-gradient(105deg,#aaf20e,var(--accent));color:#070a0c;
+  box-shadow:0 12px 34px rgba(184,255,36,.16);font-size:14px;font-weight:950;letter-spacing:.025em
+}
+.home-start b{position:absolute;right:18px;font-size:28px;font-weight:500;line-height:1}
+.home-start:active{transform:scale(.988)}
+.dashboard-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.dashboard-mini{
+  min-height:130px;position:relative;overflow:hidden;text-align:left;color:var(--text);
+  border:1px solid rgba(255,255,255,.075);border-radius:17px;padding:15px 14px;
+  background:radial-gradient(circle at 100% 0,rgba(184,255,36,.07),transparent 42%),linear-gradient(145deg,#141a1e,#0c1013);
+  box-shadow:0 14px 34px rgba(0,0,0,.24)
+}
+.dashboard-mini>b{position:absolute;right:13px;bottom:15px;color:var(--muted);font-size:22px;line-height:1;font-weight:500}
+.dashboard-label{display:block;font-size:8px;letter-spacing:.13em;color:var(--muted);font-weight:900}
+.dashboard-value{display:block;margin-top:9px;font-size:25px;line-height:1;font-weight:900;letter-spacing:-.045em}
+.dashboard-mini small{display:block;max-width:85%;margin-top:9px;color:var(--muted);font-size:9px;line-height:1.35}
+.grit-mini-bars{height:31px;margin:7px 0 -3px;display:flex;align-items:flex-end;gap:4px}
+.grit-mini-bars i{display:block;width:5px;border-radius:2px 2px 0 0;background:var(--accent)}
+.grit-mini-bars i:nth-child(1){height:10px}.grit-mini-bars i:nth-child(2){height:17px}.grit-mini-bars i:nth-child(3){height:25px}.grit-mini-bars i:nth-child(4){height:20px}.grit-mini-bars i:nth-child(5){height:28px;background:#3b444b}
+.weekly-anatomy-card{
+  min-height:190px;display:grid;grid-template-columns:minmax(112px,.75fr) minmax(190px,1.25fr);align-items:stretch;
+  padding:0;background:radial-gradient(circle at 76% 43%,rgba(184,255,36,.09),transparent 35%),linear-gradient(145deg,#141a1e,#0b0f12)
+}
+.weekly-anatomy-copy{position:relative;z-index:2;padding:19px 0 17px 17px;display:flex;flex-direction:column;align-items:flex-start}
+.weekly-anatomy-copy>strong{display:block;margin-top:11px;font-size:34px;line-height:.9;letter-spacing:-.06em}
+.weekly-anatomy-copy>strong em{display:block;margin-top:7px;font-size:10px;letter-spacing:.16em;color:var(--accent);font-style:normal}
+.weekly-anatomy-copy>span:not(.dashboard-label){margin-top:12px;color:var(--muted);font-size:9px;line-height:1.4}
+.weekly-detail-link{margin-top:auto;padding:8px 0 0;border:0;background:transparent;color:var(--text);font-size:9px;font-weight:850}
+.weekly-detail-link b{color:var(--accent);font-size:15px;margin-left:3px}
+.weekly-anatomy-figure{position:relative;min-width:0;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.weekly-anatomy-figure:after{content:"";position:absolute;inset:auto 7% 0;height:25%;background:linear-gradient(transparent,#0b0f12);pointer-events:none}
+.weekly-anatomy-figure .muscle-body{width:122%;max-width:none;margin:4px -11% -21px 0;filter:drop-shadow(0 13px 25px rgba(0,0,0,.35))}
+.weekly-anatomy-figure .muscle-body-v82 text{display:none}
+.weekly-balance-card .muscle-row{grid-template-columns:78px 1fr 62px}
+@media(max-width:370px){
+  .brand-tagline{display:none}
+  .dashboard-pair{gap:8px}.dashboard-mini{padding:13px 12px;min-height:126px}.dashboard-value{font-size:22px}
+  .weekly-anatomy-card{grid-template-columns:108px 1fr}.weekly-anatomy-copy{padding-left:14px}.weekly-anatomy-copy>strong{font-size:30px}
+}
 
 .queue-row{gap:12px}
 .queue-row>div:first-child{min-width:0;flex:1}
@@ -316,3 +433,46 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
   .improvement-change{grid-column:2;text-align:left;margin-top:-5px}
   .queue-actions .secondary{padding:9px 10px}
 }
+
+.block-card{overflow:hidden}
+.block-card.review-due{border-color:rgba(202,255,58,.34);background:linear-gradient(160deg,rgba(202,255,58,.09),rgba(16,21,25,.98) 58%)}
+.block-progress{height:7px;margin:14px 0 9px;border-radius:999px;background:#252c31;overflow:hidden}
+.block-progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#8dc815,var(--accent))}
+.exercise-filter-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(120px,.65fr);gap:9px;margin:14px 0 10px}
+.exercise-filter-grid .field{margin:0}
+.exercise-filter-grid select{width:100%;min-height:44px;border:none;background:transparent;color:#fff;font:inherit;font-weight:800;outline:none}
+.exercise-history-guide{margin:15px 0 12px;padding:14px;border:1px solid rgba(184,255,36,.14);border-radius:18px;background:linear-gradient(160deg,rgba(184,255,36,.045),rgba(8,11,13,.82) 48%)}
+.history-step{display:flex;align-items:center;gap:10px;margin:2px 2px 9px}
+.history-step>span{width:25px;height:25px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;background:var(--accent);color:#070a0c;font-size:11px;font-weight:950}
+.history-step strong,.history-step small{display:block}
+.history-step strong{font-size:12px}
+.history-step small{margin-top:2px;color:var(--muted);font-size:9px}
+.history-select-field{margin:0 0 14px}
+.history-select-field select{width:100%;min-height:38px;border:0;background:transparent;color:var(--text);font-size:16px;font-weight:850;outline:none}
+.history-select-field select:disabled{color:var(--muted2);opacity:.72}
+.history-select-field select option{background:#101418;color:var(--text)}
+.history-view-button{margin-top:0}
+.history-view-button:disabled{cursor:default;opacity:.34;box-shadow:none}
+.recent-exercise-heading{margin:17px 1px 8px;color:var(--muted2);font-size:8px;letter-spacing:.13em;font-weight:900}
+.exercise-history-list{border-top:1px solid rgba(255,255,255,.06)}
+.exercise-history-row,.block-exercise-row{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;padding:14px 1px;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:transparent;color:var(--text)}
+.exercise-history-row:last-child,.block-exercise-row:last-child{border-bottom:0}
+.exercise-history-row>div:last-child{text-align:right}
+.exercise-history-row strong,.block-exercise-row strong{display:block;font-size:14px}
+.exercise-history-row span,.block-exercise-row span{display:block;color:var(--muted);font-size:9px;line-height:1.35;margin-top:4px}
+.exercise-history-row .good,.exercise-history-row .bad{font-weight:850}
+.comparison-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}
+.comparison-grid .metric{min-height:78px}
+.comparison-grid .metric strong{font-size:18px}
+.exercise-chart-wrap{margin-top:12px;background:#0a0d10;border:1px solid rgba(255,255,255,.06);border-radius:17px;padding:8px;overflow:hidden}
+.exercise-trend{display:block;width:100%;height:auto}
+.block-review-hero{background:radial-gradient(circle at 85% 10%,rgba(202,255,58,.11),transparent 38%),linear-gradient(180deg,#171d21,#101417)}
+.block-exercise-row b{font-size:13px;white-space:nowrap}
+.review-actions .secondary{display:block;width:100%;margin-top:9px}
+.delete-confirm-panel{margin-top:10px;padding:15px;border:1px solid rgba(255,105,112,.35);border-radius:17px;background:rgba(104,25,30,.20)}
+.delete-confirm-panel strong,.delete-confirm-panel span{display:block}
+.delete-confirm-panel strong{color:#ff9ba0;font-size:16px}
+.delete-confirm-panel span{color:var(--muted);font-size:10px;line-height:1.45;margin:5px 0 12px}
+.delete-confirm-panel .row>*{flex:1}
+.delete-confirm-panel .danger{color:#ff9ba0;border-color:rgba(255,105,112,.45)}
+@media(max-width:390px){.exercise-filter-grid{grid-template-columns:1fr}.exercise-history-row{gap:8px}.exercise-history-row strong{font-size:13px}}

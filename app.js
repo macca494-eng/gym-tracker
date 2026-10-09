@@ -1,5 +1,5 @@
 
-const APP_RELEASE = "7.4";
+const APP_RELEASE = "8.6";
 const DEFAULT_PROGRAM = [
   {id:"upper-a",name:"Upper A – Strength",day:"Mon",plannedMinutes:52,exercises:[
     ["Bench Press",3,5,8,180,"Chest",["Triceps","Front Delts"]],
@@ -157,6 +157,15 @@ if(!state.macroTargets) state.macroTargets={protein:190,carbs:250,fat:80};
 if(!state.progressMetric) state.progressMetric="weight";
 if(!state.progressRange) state.progressRange="7D";
 if(!Number.isInteger(state.progressPoint)) state.progressPoint=-1;
+if(!state.grit) state.grit={days:[],nextDate:null};
+if(!Array.isArray(state.grit.days)) state.grit.days=[];
+if(!Array.isArray(state.trainingBlocks)){
+  const recent=(state.history||[]).map(h=>h.end||h.start).filter(Number.isFinite).filter(t=>t>=Date.now()-42*86400000).sort((a,b)=>a-b)[0];
+  state.trainingBlocks=[{id:`block-${Date.now()}`,name:"Training Block 1",startDate:recent?isoDate(new Date(recent)):isoDate(),weeks:6,status:"active"}];
+}
+if(!state.activeBlockId)state.activeBlockId=state.trainingBlocks.find(b=>b.status==="active")?.id||state.trainingBlocks.at(-1)?.id;
+if(!state.exerciseFilters)state.exerciseFilters={search:"",muscle:"All"};
+if(!/^\d{4}-\d{2}$/.test(state.calendarMonth||"")) state.calendarMonth=isoDate().slice(0,7);
 if(!state.appVersion || state.appVersion<7){
   state.program=DEFAULT_PROGRAM;
   state.appVersion=7;
@@ -315,12 +324,27 @@ function createBackdatedCustomWorkout(date){
   state.backdatedCustomDate=date;
   startBlankCustom();
 }
+function calendarViewDate(){
+  const now=new Date(),parts=String(state.calendarMonth||"").split("-").map(Number);
+  const view=parts.length===2&&parts.every(Number.isFinite)?new Date(parts[0],parts[1]-1,1):new Date(now.getFullYear(),now.getMonth(),1);
+  const current=new Date(now.getFullYear(),now.getMonth(),1);
+  if(view>current){state.calendarMonth=isoDate(now).slice(0,7);return current;}
+  return view;
+}
+function changeCalendarMonth(delta){
+  const view=calendarViewDate(),next=new Date(view.getFullYear(),view.getMonth()+delta,1),now=new Date(),current=new Date(now.getFullYear(),now.getMonth(),1);
+  if(next>current)return;
+  state.calendarMonth=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,"0")}`;
+  save();render();
+}
 function monthCalendarHTML(){
-  const now=new Date(),y=now.getFullYear(),m=now.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0);
-  const completed=new Map(); state.history.forEach(h=>{const d=new Date(h.end||h.start);if(d.getFullYear()===y&&d.getMonth()===m)completed.set(d.getDate(),h.id);});
+  const now=new Date(),view=calendarViewDate(),y=view.getFullYear(),m=view.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0);
+  const monthSessions=state.history.filter(h=>{const d=new Date(h.end||h.start);return d.getFullYear()===y&&d.getMonth()===m;});
+  const completed=new Set(); monthSessions.forEach(h=>{const d=new Date(h.end||h.start);completed.add(d.getDate());});
   const mondayIndex=(first.getDay()+6)%7,cells=[]; for(let i=0;i<mondayIndex;i++)cells.push("<div></div>");
-  for(let day=1;day<=last.getDate();day++){const isToday=day===now.getDate(),id=completed.get(day),cls=`cal-day ${id?"trained":""} ${isToday?"today":""}`,date=`${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;cells.push(`<button class="${cls}" onclick="openCalendarDate('${date}')">${day}</button>`);}
-  return `<div class="between"><h3>${now.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</h3><span class="badge">${completed.size} sessions</span></div><div class="cal-head">${["M","T","W","T","F","S","S"].map(x=>`<span>${x}</span>`).join("")}</div><div class="calendar-grid">${cells.join("")}</div>`;
+  for(let day=1;day<=last.getDate();day++){const isToday=y===now.getFullYear()&&m===now.getMonth()&&day===now.getDate(),trained=completed.has(day),cls=`cal-day ${trained?"trained":""} ${isToday?"today":""}`,date=`${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;cells.push(`<button class="${cls}" onclick="openCalendarDate('${date}')" aria-label="${date}${trained?", trained":""}">${day}</button>`);}
+  const isCurrent=y===now.getFullYear()&&m===now.getMonth(),count=monthSessions.length;
+  return `<div class="calendar-title-row"><button class="calendar-nav" onclick="changeCalendarMonth(-1)" aria-label="Previous month">‹</button><h3>${view.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</h3><button class="calendar-nav" onclick="changeCalendarMonth(1)" aria-label="Next month" ${isCurrent?"disabled":""}>›</button><span class="badge">${count} session${count===1?"":"s"}</span></div><div class="cal-head">${["M","T","W","T","F","S","S"].map(x=>`<span>${x}</span>`).join("")}</div><div class="calendar-grid">${cells.join("")}</div>`;
 }
 function startOfTrainingWeek(){
   const d=new Date(),day=(d.getDay()+6)%7;
@@ -332,6 +356,92 @@ function weeklyGapRows(){
   return Object.entries(TARGETS).map(([name,t])=>{const n=totals[name]||0,min=t[0],short=Math.max(0,min-n);return {name,n,min,max:t[1],short,pct:Math.min(100,n/min*100)};}).sort((a,b)=>b.short-a.short);
 }
 function qs(sel){return document.querySelector(sel)}
+function htmlSafe(value){return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
+const GRIT_DAYS=[{n:1,label:"Mon"},{n:2,label:"Tue"},{n:3,label:"Wed"},{n:4,label:"Thu"},{n:5,label:"Fri"},{n:6,label:"Sat"},{n:0,label:"Sun"}];
+function localDateFromISO(value){return new Date(`${value}T12:00:00`)}
+function dateDiffDays(a,b){return Math.round((localDateFromISO(a)-localDateFromISO(b))/86400000)}
+function gritScoreFor(planned,completed){
+  if(!planned||!completed)return null;
+  const daysOutside=Math.max(0,Math.abs(dateDiffDays(completed,planned))-1);
+  return Math.max(0,100-daysOutside*13);
+}
+function nextScheduledGritDate(afterDate=isoDate(),includeToday=true){
+  const days=state.grit?.days||[];if(!days.length)return null;
+  const d=localDateFromISO(afterDate);
+  for(let i=includeToday?0:1;i<=14;i++){const x=new Date(d);x.setDate(x.getDate()+i);if(days.includes(x.getDay()))return isoDate(x)}
+  return null;
+}
+function gritScores(){return state.history.map(h=>Number(h.gritScore)).filter(Number.isFinite)}
+function overallGrit(){const scores=gritScores();return scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):100}
+function gritWindowText(date){
+  if(!date)return "Set your next workout";
+  const d=localDateFromISO(date),from=new Date(d),to=new Date(d);from.setDate(from.getDate()-1);to.setDate(to.getDate()+1);
+  const f=x=>x.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
+  return `${f(from)} – ${f(to)}`;
+}
+function toggleGritDay(day){const el=document.querySelector(`.grit-day[data-day="${day}"]`);if(el)el.classList.toggle("active")}
+function openGritSettings(){
+  const selected=new Set(state.grit.days||[]);
+  document.getElementById("app").innerHTML=shell("Grit Schedule","Choose the days you intend to train",
+    `<section class="card grit-settings-card"><div class="notice">Choose your normal training days. Each planned workout has a 100% window covering the planned day and one day either side.</div>
+      <div class="grit-day-grid">${GRIT_DAYS.map(d=>`<button class="grit-day ${selected.has(d.n)?"active":""}" data-day="${d.n}" onclick="toggleGritDay(${d.n})">${d.label}</button>`).join("")}</div>
+      <div class="small">The number selected becomes your intended weekly frequency. You can still choose a different next date after any completed workout.</div>
+      <button class="primary" onclick="saveGritSettings()">SAVE GRIT SCHEDULE</button>
+    </section><button class="secondary" style="width:100%" onclick="go('home')">Cancel</button>`,"home");
+}
+function saveGritSettings(){
+  const days=[...document.querySelectorAll(".grit-day.active")].map(x=>Number(x.dataset.day));
+  if(!days.length){toast("Choose at least one training day");return}
+  state.grit.days=days;
+  if(!state.grit.nextDate||dateDiffDays(state.grit.nextDate,isoDate())<0)state.grit.nextDate=nextScheduledGritDate(isoDate(),true);
+  save();go("home");toast(`Grit set for ${days.length} workout${days.length===1?"":"s"} per week`);
+}
+function saveNextWorkoutDate(){
+  const date=qs("#nextWorkoutDate")?.value;if(!date){toast("Choose your next workout date");return}
+  state.grit.nextDate=date;save();render();toast("Next workout planned");
+}
+function gritCardHTML(){
+  const configured=state.grit.days.length>0,score=overallGrit(),scores=gritScores(),next=state.grit.nextDate;
+  if(!configured)return `<section class="card grit-card"><div class="between"><div><div class="section-kicker">Consistency</div><h3 style="margin:0">Build your Grit score</h3></div><div class="grit-ring grit-empty"><strong>—</strong></div></div><div class="small" style="margin-top:10px">Set the days you intend to train. Complete workouts inside each three-day window to maintain 100% Grit.</div><button class="primary" onclick="openGritSettings()">SET TRAINING FREQUENCY</button></section>`;
+  return `<section class="card grit-card"><div class="between"><div><div class="section-kicker">Your consistency</div><h3 style="margin:0">Grit score</h3><div class="small" style="margin-top:6px">Average of ${scores.length} scored workout${scores.length===1?"":"s"}</div></div><div class="grit-ring" style="--grit:${score*3.6}deg"><strong>${score}%</strong></div></div>
+    <div class="grit-next"><span>Next 100% window</span><strong>${gritWindowText(next)}</strong>${next?`<small>Planned for ${localDateFromISO(next).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"})}</small>`:""}</div>
+    <button class="secondary" style="width:100%;margin-top:10px" onclick="openGritSettings()">Edit workout days</button></section>`;
+}
+function workoutFocusLabel(workout){
+  const name=String(workout?.name||"").toLowerCase();
+  if(name.includes("push"))return "Push";
+  if(name.includes("pull"))return "Pull";
+  if(name.includes("upper"))return "Upper";
+  if(name.includes("lower")||name.includes("leg"))return "Lower";
+  const groups=[...new Set((workout?.exercises||[]).map(e=>e.primary).filter(Boolean))];
+  const upper=groups.filter(m=>!["Quads","Hamstrings","Glutes","Calves"].includes(m)).length;
+  const lower=groups.length-upper;
+  if(lower&&!upper)return "Lower";
+  if(upper&&!lower)return "Upper";
+  return workout?.name||"Workout";
+}
+function compactGritHTML(){
+  const configured=state.grit.days.length>0,score=overallGrit(),next=state.grit.nextDate;
+  return `<button class="dashboard-mini grit-mini" onclick="openGritSettings()">
+    <span class="dashboard-label">GRIT SCORE</span>
+    <span class="dashboard-value">${configured?`${score}%`:"SET UP"}</span>
+    <span class="grit-mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    <small>${configured?(next?gritWindowText(next):"Plan next workout"):"Choose workout days"}</small>
+    <b aria-hidden="true">›</b>
+  </button>`;
+}
+function weeklyDashboardCard(weekSets,totals){
+  const trained=Object.values(totals).filter(v=>Number(v)>0).length;
+  return `<section class="card weekly-anatomy-card">
+    <div class="weekly-anatomy-copy">
+      <span class="dashboard-label">SETS THIS WEEK</span>
+      <strong>${weekSets} <em>SETS</em></strong>
+      <span>${trained?`${trained} muscle group${trained===1?"":"s"} trained`:"Your muscle map builds as you train"}</span>
+      <button class="weekly-detail-link" onclick="go('stats')">View progress <b>›</b></button>
+    </div>
+    <div class="weekly-anatomy-figure">${muscleBodySVG(totals)}</div>
+  </section>`;
+}
 function fmtSec(s){ const m=Math.floor(s/60), sec=s%60; return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`; }
 function e1rm(w,r){ if(!(w>0) || !(r>0)) return 0; return +(w*(1+r/30)).toFixed(1); }
 function totalSets(w){return w.exercises.reduce((a,e)=>a+e.sets,0)}
@@ -422,6 +532,17 @@ function todayLabel(){
 function go(route){state.route=route;save();render()}
 function toast(msg){ const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),1800)}
 
+function reptraceMark(){
+  return `<svg class="reptrace-mark" viewBox="0 0 64 54" aria-hidden="true">
+    <path class="reptrace-mark-lime" d="M3 3h34.2C51.8 3 61 11.4 61 24.6c0 8.6-3.7 15.2-10.8 19.8l-7.4-10.2c4.1-2.5 5.9-5.6 5.9-9.8 0-5.7-4.3-9.2-11.4-9.2H3z"/>
+    <path class="reptrace-mark-white" d="M3 18.7h28.8c4.8 0 8.5 1.8 11.3 5.6L62 51H46.6L32.9 32.4c-1-1.3-2.3-1.8-4.1-1.8H3z"/>
+    <path class="reptrace-mark-white" d="M20.8 35.1h12L44 51H31.8z"/>
+  </svg>`;
+}
+function reptraceLockup(){
+  return `<div class="reptrace-lockup">${reptraceMark()}<span>REPTRACE</span></div>`;
+}
+
 function nav(active){
   return `<nav class="nav">
     <button class="${active==="home"?"active":""}" onclick="go('home')"><span class="nav-ico">⌂</span>Home</button>
@@ -432,7 +553,7 @@ function nav(active){
 }
 function shell(title,subtitle,body,active="home"){
   return `<div class="app-shell">
-    <header class="topbar"><div class="title">${title}</div>${subtitle?`<div class="subtitle">${subtitle}</div>`:""}</header>
+    <header class="topbar"><div class="brand-row">${reptraceLockup()}<span class="brand-tagline">STRENGTH, MADE VISIBLE.</span></div><div class="title">${title}</div>${subtitle?`<div class="subtitle">${subtitle}</div>`:""}</header>
     <main class="content">${body}</main>${nav(active)}
   </div>`;
 }
@@ -486,36 +607,86 @@ function muscleIcon(muscle){
   if(m==="Core") return "◎";
   return "🏆";
 }
-function muscleBodySVG(values={}){
+let muscleSvgCounter=0;
+function legacyMuscleBodySVG(values={}){
   const max=Math.max(1,...Object.values(values).map(Number).filter(Number.isFinite));
-  const op=m=>values[m]?Math.max(.42,Math.min(1,Number(values[m])/max)):.08;
-  const fill=(m)=>`style="opacity:${op(m)}"`;
-  return `<svg class="muscle-body" viewBox="0 0 340 190" role="img" aria-label="Muscles worked">
-    <g class="body-base">
-      <circle cx="86" cy="22" r="15"/><rect x="66" y="39" width="40" height="55" rx="16"/>
-      <rect x="48" y="45" width="15" height="67" rx="8"/><rect x="109" y="45" width="15" height="67" rx="8"/>
-      <rect x="67" y="96" width="17" height="69" rx="9"/><rect x="88" y="96" width="17" height="69" rx="9"/>
-      <circle cx="254" cy="22" r="15"/><rect x="234" y="39" width="40" height="55" rx="16"/>
-      <rect x="216" y="45" width="15" height="67" rx="8"/><rect x="277" y="45" width="15" height="67" rx="8"/>
-      <rect x="235" y="96" width="17" height="69" rx="9"/><rect x="256" y="96" width="17" height="69" rx="9"/>
-    </g>
-    <g class="muscle-hi">
-      <path d="M69 49 Q86 39 103 49 L101 69 Q86 76 71 69 Z" ${fill("Chest")}/>
-      <circle cx="62" cy="48" r="10" ${fill("Front Delts")}/><circle cx="110" cy="48" r="10" ${fill("Front Delts")}/>
-      <circle cx="58" cy="52" r="11" ${fill("Side Delts")}/><circle cx="114" cy="52" r="11" ${fill("Side Delts")}/>
-      <rect x="50" y="61" width="11" height="28" rx="6" ${fill("Biceps")}/><rect x="111" y="61" width="11" height="28" rx="6" ${fill("Biceps")}/>
-      <rect x="76" y="70" width="20" height="21" rx="5" ${fill("Core")}/>
-      <rect x="68" y="99" width="15" height="38" rx="7" ${fill("Quads")}/><rect x="89" y="99" width="15" height="38" rx="7" ${fill("Quads")}/>
-      <rect x="69" y="139" width="13" height="25" rx="6" ${fill("Calves")}/><rect x="90" y="139" width="13" height="25" rx="6" ${fill("Calves")}/>
+  const op=m=>values[m]?Math.max(.42,Math.min(1,Number(values[m])/max)):.035;
+  const fill=(m)=>`data-muscle="${m}" style="opacity:${op(m)}"`;
+  const id=`anatomy-${++muscleSvgCounter}`;
+  return `<svg class="muscle-body" viewBox="0 0 460 264" role="img" aria-label="Front and back anatomical muscle map">
+    <defs>
+      <linearGradient id="${id}-skin" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#48515a"/><stop offset=".48" stop-color="#252c32"/><stop offset="1" stop-color="#151a1f"/></linearGradient>
+      <linearGradient id="${id}-limb" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#1b2126"/><stop offset=".48" stop-color="#3d464e"/><stop offset="1" stop-color="#171c21"/></linearGradient>
+      <linearGradient id="${id}-active" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e5ff79" stop-opacity=".80"/><stop offset=".5" stop-color="#caff3a" stop-opacity=".74"/><stop offset="1" stop-color="#8fc900" stop-opacity=".68"/></linearGradient>
+      <radialGradient id="${id}-head" cx="40%" cy="28%"><stop stop-color="#515b64"/><stop offset=".65" stop-color="#293137"/><stop offset="1" stop-color="#171c21"/></radialGradient>
+      <filter id="${id}-glow" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="1.15" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <image class="anatomy-render" href="anatomy-premium.png" x="0" y="0" width="460" height="264" preserveAspectRatio="xMidYMid meet"/>
+    <g class="muscle-hi" fill="url(#${id}-active)" filter="url(#${id}-glow)">
+      <path d="M148 58 C140 55 126 55 119 60 C117 65 119 72 124 75 C133 78 142 76 148 71 Z" ${fill("Chest")}/><path d="M153 58 C161 55 175 55 182 60 C184 65 182 72 177 75 C168 78 159 76 153 71 Z" ${fill("Chest")}/>
+      <path d="M119 55 C114 54 111 57 110 62 C110 66 113 69 118 70 L124 63 C124 59 122 56 119 55 Z" ${fill("Front Delts")}/><path d="M182 55 C187 54 190 57 191 62 C191 66 188 69 183 70 L177 63 C177 59 179 56 182 55 Z" ${fill("Front Delts")}/>
+      <path d="M113 56 C108 58 106 63 108 68 C111 71 115 69 118 66 L121 58 C119 56 116 55 113 56 Z" ${fill("Side Delts")}/><path d="M188 56 C193 58 195 63 193 68 C190 71 186 69 183 66 L180 58 C182 56 185 55 188 56 Z" ${fill("Side Delts")}/>
+      <path d="M113 70 C109 75 109 85 112 91 C116 93 120 89 120 84 L122 73 C120 69 116 68 113 70 Z" ${fill("Biceps")}/><path d="M188 70 C192 75 192 85 189 91 C185 93 181 89 181 84 L179 73 C181 69 185 68 188 70 Z" ${fill("Biceps")}/>
+      <path d="M139 77 C143 75 147 76 149 79 L149 88 C146 91 142 91 139 88 Z M152 79 C154 76 158 75 162 77 L162 88 C159 91 155 91 152 88 Z M139 91 C143 89 147 90 149 93 L149 102 C146 105 142 105 139 102 Z M152 93 C154 90 158 89 162 91 L162 102 C159 105 155 105 152 102 Z M140 105 C144 103 147 104 149 107 L149 116 C146 119 143 119 140 116 Z M152 107 C154 104 157 103 161 105 L161 116 C158 119 155 119 152 116 Z" ${fill("Core")}/>
+      <path d="M132 77 C136 76 138 80 138 85 L137 111 C134 117 130 116 128 111 L124 91 Z M169 77 C165 76 163 80 163 85 L164 111 C167 117 171 116 173 111 L177 91 Z" ${fill("Core")}/>
+      <path d="M127 124 C122 136 123 159 129 172 C134 176 141 169 142 160 L146 132 C142 124 133 120 127 124 Z" ${fill("Quads")}/><path d="M174 124 C179 136 178 159 172 172 C167 176 160 169 159 160 L155 132 C159 124 168 120 174 124 Z" ${fill("Quads")}/>
+      <path d="M130 175 C125 186 127 210 132 222 C137 225 142 219 142 211 L144 182 C140 176 135 172 130 175 Z" ${fill("Calves")}/><path d="M171 175 C176 186 174 210 169 222 C164 225 159 219 159 211 L157 182 C161 176 166 172 171 175 Z" ${fill("Calves")}/>
 
-      <path d="M237 49 Q254 38 271 49 L269 83 Q254 93 239 83 Z" ${fill("Back")}/>
-      <circle cx="230" cy="49" r="10" ${fill("Rear Delts")}/><circle cx="278" cy="49" r="10" ${fill("Rear Delts")}/>
-      <rect x="218" y="61" width="11" height="30" rx="6" ${fill("Triceps")}/><rect x="279" y="61" width="11" height="30" rx="6" ${fill("Triceps")}/>
-      <rect x="239" y="91" width="31" height="17" rx="8" ${fill("Glutes")}/>
-      <rect x="236" y="108" width="15" height="31" rx="7" ${fill("Hamstrings")}/><rect x="257" y="108" width="15" height="31" rx="7" ${fill("Hamstrings")}/>
-      <rect x="237" y="140" width="13" height="25" rx="6" ${fill("Calves")}/><rect x="258" y="140" width="13" height="25" rx="6" ${fill("Calves")}/>
+      <path d="M309 42 C299 44 288 49 280 56 L286 67 C293 74 301 82 309 91 Z" ${fill("Back")}/><path d="M312 42 C322 44 333 49 341 56 L335 67 C328 74 320 82 312 91 Z" ${fill("Back")}/>
+      <path d="M286 67 C281 78 282 97 290 111 C296 116 304 115 309 110 L309 90 C300 80 293 72 286 67 Z" ${fill("Back")}/><path d="M335 67 C340 78 339 97 331 111 C325 116 317 115 312 110 L312 90 C321 80 328 72 335 67 Z" ${fill("Back")}/>
+      <path d="M277 55 C272 57 269 62 271 68 C274 72 280 71 285 67 L289 59 C286 55 282 54 277 55 Z" ${fill("Rear Delts")}/><path d="M344 55 C349 57 352 62 350 68 C347 72 341 71 336 67 L332 59 C335 55 339 54 344 55 Z" ${fill("Rear Delts")}/>
+      <path d="M271 69 C267 76 268 88 272 94 C276 96 280 92 280 86 L282 73 C280 69 275 67 271 69 Z" ${fill("Triceps")}/><path d="M350 69 C354 76 353 88 349 94 C345 96 341 92 341 86 L339 73 C341 69 346 67 350 69 Z" ${fill("Triceps")}/>
+      <path d="M291 111 C286 118 287 137 293 144 C300 147 306 141 309 134 L309 116 C303 111 297 109 291 111 Z" ${fill("Glutes")}/><path d="M330 111 C335 118 334 137 328 144 C321 147 315 141 312 134 L312 116 C318 111 324 109 330 111 Z" ${fill("Glutes")}/>
+      <path d="M291 145 C286 153 287 168 293 174 C299 176 304 171 304 164 L307 149 C303 145 297 142 291 145 Z" ${fill("Hamstrings")}/><path d="M330 145 C335 153 334 168 328 174 C322 176 317 171 317 164 L314 149 C318 145 324 142 330 145 Z" ${fill("Hamstrings")}/>
+      <path d="M292 176 C287 185 288 202 293 209 C298 211 303 206 303 199 L306 181 C302 176 297 173 292 176 Z" ${fill("Calves")}/><path d="M329 176 C334 185 333 202 328 209 C323 211 318 206 318 199 L315 181 C319 176 324 173 329 176 Z" ${fill("Calves")}/>
+
+      <path d="M274 56 C269 58 267 63 269 68 C272 71 276 70 280 67 L283 58 C281 56 278 55 274 56 Z" ${fill("Side Delts")}/><path d="M347 56 C352 58 354 63 352 68 C349 71 345 70 341 67 L338 58 C340 56 343 55 347 56 Z" ${fill("Side Delts")}/>
     </g>
-    <text x="86" y="184" text-anchor="middle">FRONT</text><text x="254" y="184" text-anchor="middle">BACK</text>
+    <text x="151" y="262" text-anchor="middle">FRONT</text><text x="308" y="262" text-anchor="middle">BACK</text>
+  </svg>`;
+}
+function muscleBodySVG(values={}){
+  const registry=window.ANATOMY_MUSCLES||[];
+  const vb=window.ANATOMY_VIEWBOX||{width:361.15625,height:541.86667};
+  const max=Math.max(1,...Object.values(values).map(Number).filter(Number.isFinite));
+  const opacityFor=name=>values[name]?Math.max(.54,Math.min(.94,Number(values[name])/max)):.035;
+  const id=`anatomy-v82-${++muscleSvgCounter}`;
+  const groupMap={
+    "Chest":{front:["pectoralis"]},
+    "Back":{back:["upper_back","lats","lower_back"]},
+    "Front Delts":{front:["deltoids"],clip:"front-delt"},
+    "Side Delts":{front:["deltoids"],clip:"side-delt"},
+    "Rear Delts":{back:["deltoids_back"]},
+    "Biceps":{front:["biceps"]},
+    "Triceps":{back:["triceps"]},
+    "Core":{front:["rectus_abdominis","obliques"]},
+    "Quads":{front:["quadriceps"]},
+    "Hamstrings":{back:["hamstrings"]},
+    "Glutes":{back:["glutes"]},
+    "Calves":{front:["calves"],back:["calves_back"]}
+  };
+  const transformFor=m=>m.offset&&(+m.offset.x||+m.offset.y)
+    ?`translate(${(+m.offset.x||0)*.2645833333} ${(+m.offset.y||0)*.2645833333})`:"";
+  const pathsFor=view=>Object.keys(values).flatMap(name=>{
+    const config=groupMap[name];
+    if(!config||!values[name]) return [];
+    const wanted=config[view]||[];
+    return registry.filter(m=>m.view===view&&wanted.includes(m.id)).map(m=>{
+      const clip=config.clip?` clip-path="url(#${id}-${config.clip})"`:"";
+      return `<path class="anatomy-highlight" data-muscle="${name}" d="${m.d}" transform="${transformFor(m)}" opacity="${opacityFor(name)}"${clip}/>`;
+    });
+  }).join("");
+  const panel=(view,x)=>`<svg class="anatomy-person anatomy-person-${view}" x="${x}" y="0" width="360" height="542" viewBox="0 0 ${vb.width} ${vb.height}" aria-hidden="true">
+    <defs>
+      <clipPath id="${id}-front-delt"><rect x="52" y="0" width="18" height="542"/><rect x="142" y="0" width="18" height="542"/></clipPath>
+      <clipPath id="${id}-side-delt"><rect x="25" y="0" width="31" height="542"/><rect x="156" y="0" width="31" height="542"/></clipPath>
+    </defs>
+    <image href="anatomy-${view}.webp" x="0" y="0" width="${vb.width}" height="${vb.height}" preserveAspectRatio="xMidYMid meet"/>
+    <g class="anatomy-highlights">${pathsFor(view)}</g>
+  </svg>`;
+  return `<svg class="muscle-body muscle-body-v82" viewBox="0 0 760 574" role="img" aria-label="Front and back anatomical muscle map">
+    ${panel("front",10)}${panel("back",390)}
+    <text x="190" y="571" text-anchor="middle">FRONT</text><text x="570" y="571" text-anchor="middle">BACK</text>
   </svg>`;
 }
 function exerciseMuscleMap(ex){
@@ -637,6 +808,13 @@ function replaceExerciseAtIndex(targetIndex,name){
 }
 
 function openCustomExerciseForm(mode="add",targetIndex=null,preselectedMuscle=null){
+  const builderMode=mode==="custom-builder";
+  const programmeBuilderMode=mode==="programme-builder";
+  const cancelAction=programmeBuilderMode
+    ? (preselectedMuscle?`openProgrammeExerciseGroup(${JSON.stringify(preselectedMuscle)})`:`openProgrammeExercisePicker()`)
+    : builderMode
+    ? (preselectedMuscle?`openCustomWorkoutGroup(${JSON.stringify(preselectedMuscle)})`:`renderCustomWorkoutBuilder()`)
+    : `openExercisePicker(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})`;
   document.getElementById("app").innerHTML=shell("Create Custom Exercise","Save it to your exercise library",
     `<section class="card">
       <div class="field"><label>Exercise name</label><input id="customName" type="text" placeholder="e.g. Hammer Strength High Row"></div>
@@ -655,13 +833,13 @@ function openCustomExerciseForm(mode="add",targetIndex=null,preselectedMuscle=nu
         <div class="field"><label>Min reps</label><input id="customRepMin" type="number" min="1" step="1" value="8"></div>
         <div class="field"><label>Max reps</label><input id="customRepMax" type="number" min="1" step="1" value="12"></div>
       </div>
-      <button class="primary" onclick='saveCustomExerciseFromForm(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>SAVE & ${mode==="replace"?"USE AS REPLACEMENT":"ADD TO WORKOUT"}</button>
+      <button class="primary" onclick='saveCustomExerciseFromForm(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex},${JSON.stringify(preselectedMuscle)})'>SAVE & ${mode==="replace"?"USE AS REPLACEMENT":programmeBuilderMode?"ADD TO PROGRAMME WORKOUT":builderMode?"ADD TO CUSTOM WORKOUT":"ADD TO WORKOUT"}</button>
     </section>
-    <button class="secondary" style="width:100%" onclick='openExercisePicker(${JSON.stringify(mode)},${targetIndex===null?"null":targetIndex})'>Cancel</button>`,
+    <button class="secondary" style="width:100%" onclick='${cancelAction}'>Cancel</button>`,
   "home");
 }
 
-function saveCustomExerciseFromForm(mode="add",targetIndex=null){
+function saveCustomExerciseFromForm(mode="add",targetIndex=null,returnMuscle=null){
   const name=(qs("#customName")?.value||"").trim();
   const primary=qs("#customPrimary")?.value||"Chest";
   const equipment=(qs("#customEquipment")?.value||"Other").trim()||"Other";
@@ -677,7 +855,9 @@ function saveCustomExerciseFromForm(mode="add",targetIndex=null){
     state.customExercises.push(item);
     save();
   }
-  chooseExerciseFromPicker(item.name,mode,targetIndex);
+  if(mode==="programme-builder") addProgrammeDraftExercise(item.name);
+  else if(mode==="custom-builder") addToBlankCustom(item.name);
+  else chooseExerciseFromPicker(item.name,mode,targetIndex);
 }
 
 function openEditExerciseDefaults(name,returnMode="add",targetIndex=null){
@@ -744,9 +924,9 @@ function home(){
   const recId=recommendedWorkoutId(),recommended=workoutById(recId)||state.program[0],selected=workoutById(state.selectedProgram)||recommended;
   const completedThisWeek=state.history.slice(-30).filter(h=>(h.end||0)>=startOfTrainingWeek()),recent=lastCompletedWorkout();
   const weekSets=completedThisWeek.reduce((a,h)=>a+(h.logs||[]).reduce((x,l)=>x+(l.sets||[]).filter(s=>s.setType!=="warmup").length,0),0);
-  const isOverride=selected.id!==recommended.id,c=todayCheckin(),t=state.macroTargets,gaps=weeklyGapRows(),biggest=gaps.filter(x=>x.short>0).slice(0,3),kcalTarget=Math.round(t.protein*4+t.carbs*4+t.fat*9);
+  const isOverride=selected.id!==recommended.id,c=todayCheckin(),t=state.macroTargets,gaps=weeklyGapRows(),biggest=gaps.filter(x=>x.short>0).slice(0,3),kcalTarget=Math.round(t.protein*4+t.carbs*4+t.fat*9),weeklyTotals=weeklyMuscleTotals();
   const active=activeWorkoutSummary();
-  return shell(`${greeting()}, Michael`,todayLabel(),
+  return shell("Ready to train?",`${greeting()}, Michael · ${todayLabel()}`,
   `${active?`<section class="card active-workout-card">
       <div class="between"><span class="tag" style="margin-bottom:0">WORKOUT IN PROGRESS</span><span class="badge">${active.elapsed===null?"Backdated":`${active.elapsed} min`}</span></div>
       <div class="big" style="font-size:28px;margin-top:14px">${state.current.name}</div>
@@ -754,13 +934,18 @@ function home(){
       <button class="primary" onclick="go('live')">CONTINUE WORKOUT</button>
       <button class="secondary danger" style="width:100%;margin-top:8px" onclick="cancelWorkout()">Discard workout</button>
     </section>`:""}
-    <section class="card hero">
-      <div class="hero-orb"></div><span class="tag">${isOverride?"SELECTED":"RECOMMENDED"}</span>
-      <div class="big">${selected.name}</div>
-      <div class="meta">${isOverride?"Manual choice":recommendationReason(recommended)} · ${selected.exercises.length} exercises · ${totalSets(selected)} planned sets · ~${selected.plannedMinutes||50} min incl. warm-up</div>
-      <button class="primary" onclick="startWorkout('${selected.id}')">START ${selected.name.toUpperCase()}</button>
-      ${isOverride?`<button class="secondary" style="width:100%;margin-top:8px" onclick="state.selectedProgram='${recommended.id}';save();render()">Use recommended: ${recommended.name}</button>`:""}
-    </section>
+    <button class="home-start" onclick="${active?"go('live')":`startWorkout('${selected.id}')`}"><span>${active?"CONTINUE WORKOUT":"START WORKOUT"}</span><b>›</b></button>
+    <div class="dashboard-pair">
+      <button class="dashboard-mini next-workout-mini" onclick="document.getElementById('workout-picker').scrollIntoView({behavior:'smooth'})">
+        <span class="dashboard-label">NEXT WORKOUT</span>
+        <span class="dashboard-value">${htmlSafe(workoutFocusLabel(selected))}</span>
+        <small>${htmlSafe(selected.name)} · ${totalSets(selected)} sets</small>
+        <b aria-hidden="true">›</b>
+      </button>
+      ${compactGritHTML()}
+    </div>
+    ${weeklyDashboardCard(weekSets,weeklyTotals)}
+    ${blockStatusCardHTML()}
     <section class="card">${monthCalendarHTML()}</section>
     <section class="card">
       <div class="between"><h3>Today's check-in</h3><span class="badge" id="dailyCaloriesBadge">${macroCalories(c)} / ${kcalTarget} kcal</span></div>
@@ -785,14 +970,14 @@ function home(){
         <button class="primary" onclick="saveWeeklyWaist()">SAVE WAIST</button>
       `}
     </section>
-    <section class="card">
+    <section class="card weekly-balance-card">
       <div class="between"><h3>Weekly training balance</h3><span class="badge">${weekSets} working sets</span></div>
       ${gaps.map(g=>`<div class="muscle-row"><strong>${g.name}</strong><div class="progress"><span style="width:${g.pct}%"></span></div><span class="${g.short>0?"warn":"good"} small">${g.short>0?`${g.short.toFixed(g.short%1?1:0)} short`:"Target ✓"}</span></div>`).join("")}
       ${biggest.length?`<div class="notice" style="margin-top:12px"><strong>Biggest gaps:</strong> ${biggest.map(x=>`${x.name} ${x.short.toFixed(x.short%1?1:0)} sets`).join(" · ")}</div><button class="primary" onclick="buildTopUp()">BUILD TOP-UP WORKOUT</button>`:`<div class="notice" style="margin-top:12px">All minimum weekly set targets reached.</div>`}
       <button class="secondary" style="width:100%;margin-top:8px" onclick="startBlankCustom()">CREATE BLANK CUSTOM WORKOUT</button>
     </section>
     ${recent?`<section class="card"><div class="between"><div><div class="section-kicker">Last session</div><h3 style="margin:0">${recent.name}</h3></div><button class="secondary" onclick="state.lastCompleted='${recent.id}';save();go('summary')">View</button></div><div class="small" style="margin-top:6px">${new Date(recent.end).toLocaleDateString()} · ${(recent.logs||[]).reduce((a,l)=>a+(l.sets||[]).filter(s=>s.setType!=="warmup").length,0)} working sets</div></section>`:""}
-    <section class="card">
+    <section class="card" id="workout-picker">
       <div class="between"><h3>Choose today's workout</h3><span class="badge">Flexible plan</span></div>
       ${state.program.map(w=>`<div class="workout-row between"><div class="row"><div class="day">${w.day[0]}</div><div><strong>${w.name}</strong><div class="small">${w.id===recommended.id?"Recommended next · ":""}${totalSets(w)} sets · ~${w.plannedMinutes||50} min</div></div></div><button class="secondary" onclick="state.selectedProgram='${w.id}';save();render()">${w.id===selected.id?"Selected":"Choose"}</button></div>`).join("")}
     </section>`,
@@ -826,14 +1011,63 @@ function buildTopUp(){
   launchCustom("Weekly Top-Up",exercises);
 }
 function startBlankCustom(){
-  window.__blankCustom=[]; if(!state.backdatedCustomDate) state.backdatedCustomDate=null;
-  document.getElementById("app").innerHTML=shell("Custom Workout","Choose exercises",
-    `<section class="card"><div class="notice" style="margin-bottom:12px">Pick exercises from the library. Use your weekly set balance to guide what you need most.</div>${fullExerciseLibrary().map(x=>`<div class="workout-row between"><div><strong>${x.name}</strong><div class="small">${x.primary} · ${x.equipment||""}</div></div><button class="secondary" onclick='addToBlankCustom(${JSON.stringify(x.name)})'>Add</button></div>`).join("")}</section>
-     <section class="card"><h3>Selected</h3><div id="customSelected" class="small">No exercises selected yet.</div><button class="primary" onclick="launchBlankCustom()">START CUSTOM WORKOUT</button></section>`,"home");
+  window.__blankCustom=[];
+  if(!state.backdatedCustomDate) state.backdatedCustomDate=null;
+  renderCustomWorkoutBuilder();
+}
+function renderCustomWorkoutBuilder(){
+  if(!Array.isArray(window.__blankCustom)) window.__blankCustom=[];
+  const selected=window.__blankCustom;
+  const totalSets=selected.reduce((sum,x)=>sum+(Number(x.sets)||0),0);
+  document.getElementById("app").innerHTML=shell("Custom Workout","Choose a muscle group, then an exercise",
+    `<section class="card custom-builder-summary">
+      <div class="between"><div><div class="section-kicker">Your workout</div><h3 style="margin:2px 0 0">${selected.length} exercise${selected.length===1?"":"s"}</h3></div><span class="badge">${totalSets} working sets</span></div>
+      <div class="custom-selected-list">
+        ${selected.length?selected.map((x,i)=>`<div class="custom-selected-row"><div class="custom-selected-number">${i+1}</div><div><strong>${x.name}</strong><div class="small">${x.primary} · ${x.sets} sets · ${x.repMin}–${x.repMax} reps</div></div><button class="mini-edit custom-remove" aria-label="Remove ${x.name}" onclick="removeFromBlankCustom(${i})">Remove</button></div>`).join(""):`<div class="empty">No exercises selected yet. Start with a muscle group below.</div>`}
+      </div>
+      <button class="primary" onclick="launchBlankCustom()">BEGIN WORKOUT${selected.length?` · ${selected.length} EXERCISE${selected.length===1?"":"S"}`:""}</button>
+    </section>
+    <section class="card">
+      <div class="section-kicker">Choose muscle group</div>
+      <div class="muscle-card-grid">
+        ${EXERCISE_GROUPS.map(m=>`<button class="muscle-pick-card" onclick='openCustomWorkoutGroup(${JSON.stringify(m)})'><strong>${m}</strong><span>${groupStatus(m)}</span></button>`).join("")}
+      </div>
+    </section>
+    <section class="card"><div class="between"><div><h3 style="margin:0">Can't find it?</h3><div class="small">Create an exercise and add it to this workout.</div></div></div><button class="primary" onclick="openCustomExerciseForm('custom-builder',null,null)">+ CREATE CUSTOM EXERCISE</button></section>
+    <button class="secondary" style="width:100%" onclick="go('home')">Cancel custom workout</button>`,"home");
+}
+function openCustomWorkoutGroup(muscle){
+  if(!Array.isArray(window.__blankCustom)) window.__blankCustom=[];
+  const selectedNames=new Set(window.__blankCustom.map(x=>x.name));
+  const items=fullExerciseLibrary().filter(x=>x.primary===muscle);
+  document.getElementById("app").innerHTML=shell(muscle,"Choose one exercise",
+    `<section class="card muscle-picker-visual">
+      <div class="between"><div><div class="section-kicker">Target muscle</div><h3 style="margin:0">${muscle}</h3></div><span class="badge">${window.__blankCustom.length} selected</span></div>
+      ${muscleBodySVG({[muscle]:1})}
+    </section>
+    <section class="card">
+      ${items.length?items.map(x=>{const added=selectedNames.has(x.name);return `<div class="exercise-library-row"><button class="exercise-pick-card ${added?"is-selected":""}" ${added?"disabled":""} onclick='addToBlankCustom(${JSON.stringify(x.name)})'><div><strong>${x.name}</strong><div class="small">${x.sets??3} sets · ${x.repMin||8}–${x.repMax||12} reps · ${exerciseRest(x)}s · ${x.equipment||"Other"}</div></div><span>${added?"Added":"Add"}</span></button></div>`}).join(""):`<div class="empty">No saved exercises in this muscle group yet.</div>`}
+    </section>
+    <section class="card"><button class="primary" onclick='openCustomExerciseForm("custom-builder",null,${JSON.stringify(muscle)})'>+ CREATE CUSTOM ${muscle.toUpperCase()} EXERCISE</button></section>
+    <button class="secondary" style="width:100%" onclick="renderCustomWorkoutBuilder()">Back to muscle groups</button>`,"home");
 }
 function addToBlankCustom(name){
-  const item=fullExerciseLibrary().find(x=>x.name===name);if(!item)return;window.__blankCustom.push(makeSessionExercise(item));
-  const el=document.getElementById("customSelected");if(el)el.innerHTML=window.__blankCustom.map((x,i)=>`${i+1}. ${x.name} · ${x.sets} sets`).join("<br>");
+  const item=fullExerciseLibrary().find(x=>x.name===name);if(!item)return;
+  if(!Array.isArray(window.__blankCustom)) window.__blankCustom=[];
+  if(window.__blankCustom.some(x=>x.name===name)){
+    toast(`${name} is already selected`);
+    renderCustomWorkoutBuilder();
+    return;
+  }
+  window.__blankCustom.push(makeSessionExercise(item));
+  toast(`${name} added`);
+  renderCustomWorkoutBuilder();
+}
+function removeFromBlankCustom(index){
+  if(!Array.isArray(window.__blankCustom)) return;
+  const removed=window.__blankCustom.splice(Number(index),1)[0];
+  if(removed) toast(`${removed.name} removed`);
+  renderCustomWorkoutBuilder();
 }
 function launchBlankCustom(){
   if(!window.__blankCustom?.length){toast("Add at least one exercise");return}
@@ -1212,6 +1446,12 @@ function cancelWorkout(){ if(confirm("Cancel this workout?")){state.current=null
 function finishWorkout(){
   const c=state.current;
   c.end=(c.backdated&&c.backdatedDate)?new Date(c.backdatedDate+"T19:00:00").getTime():Date.now();
+  c.blockId=state.activeBlockId||null;
+  if(!c.backdated&&state.grit?.days?.length&&state.grit.nextDate){
+    c.gritPlannedDate=state.grit.nextDate;
+    c.gritScore=gritScoreFor(c.gritPlannedDate,isoDate(new Date(c.end)));
+    state.grit.nextDate=nextScheduledGritDate(c.gritPlannedDate,false);
+  }
   state.history.push(c);
   state.current=null;
   state.lastCompleted=c.id;
@@ -1255,6 +1495,10 @@ function summary(){
       </div>
       <button class="primary" onclick="go('analysis')">VIEW ANALYSIS</button>
     </section>
+    ${!h.backdated&&state.grit?.days?.length?`<section class="card grit-plan-card"><div class="between"><div><div class="section-kicker">Grit</div><h3 style="margin:0">${Number.isFinite(Number(h.gritScore))?`${h.gritScore}% for this workout`:"Plan your next workout"}</h3></div>${Number.isFinite(Number(h.gritScore))?`<span class="badge">${h.gritScore===100?"Inside window":"Outside window"}</span>`:""}</div>
+      ${h.gritPlannedDate?`<div class="small" style="margin-top:8px">Planned ${localDateFromISO(h.gritPlannedDate).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"})} · completed ${new Date(h.end).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"})}</div>`:""}
+      <div class="field programme-field" style="margin-top:13px"><label>When will your next workout take place?</label><input id="nextWorkoutDate" type="date" value="${state.grit.nextDate||nextScheduledGritDate(isoDate(),true)||""}"></div>
+      <button class="primary" onclick="saveNextWorkoutDate()">SAVE NEXT WORKOUT</button></section>`:""}
     ${pbs.length?`<section class="card"><div class="between"><h3>Personal bests</h3><span class="badge">${pbs.length} new</span></div><div class="pb-grid">${pbs.map(pbCard).join("")}</div></section>`:""}`,
   "history");
 }
@@ -1391,6 +1635,131 @@ function bestPerformanceMetric(log){
 
   const best=Math.max(...weighted.map(s=>e1rm(Number(s.weight),Number(s.reps))));
   return {type:"e1rm",value:best,label:`${best} kg e1RM`};
+}
+
+function activeTrainingBlock(){
+  return state.trainingBlocks.find(b=>b.id===state.activeBlockId)||state.trainingBlocks.find(b=>b.status==="active")||state.trainingBlocks.at(-1);
+}
+function blockDateAt(block,days=0){
+  const d=localDateFromISO(block?.startDate||isoDate());d.setDate(d.getDate()+days);return d;
+}
+function blockEndDate(block=activeTrainingBlock()){return blockDateAt(block,(Number(block?.weeks)||6)*7-1)}
+function blockSessions(block=activeTrainingBlock()){
+  if(!block)return [];
+  const from=blockDateAt(block).setHours(0,0,0,0),to=blockEndDate(block).setHours(23,59,59,999);
+  return (state.history||[]).filter(h=>{const t=h.end||h.start||0;return (h.blockId===block.id)||(t>=from&&t<=to)});
+}
+function blockWeek(block=activeTrainingBlock()){
+  if(!block)return 1;
+  return Math.max(1,Math.min(Number(block.weeks)||6,Math.floor((Date.now()-blockDateAt(block).getTime())/(7*86400000))+1));
+}
+function blockReviewDue(block=activeTrainingBlock()){return !!block&&Date.now()>blockEndDate(block).setHours(23,59,59,999)}
+function blockStatusCardHTML(){
+  const b=activeTrainingBlock();if(!b)return "";
+  const sessions=blockSessions(b),due=blockReviewDue(b),week=blockWeek(b),weeks=Number(b.weeks)||6;
+  const recovery=state.recoveryUntil&&dateDiffDays(state.recoveryUntil,isoDate())>=0;
+  return `<section class="card block-card ${due?"review-due":""}"><div class="between"><div><div class="section-kicker">${due?"Review ready":"Training block"}</div><h3 style="margin:0">${htmlSafe(b.name||"Training Block")}</h3></div><span class="badge">${due?"Complete":`Week ${week} / ${weeks}`}</span></div>
+    <div class="block-progress"><span style="width:${due?100:Math.min(100,week/weeks*100)}%"></span></div>
+    <div class="small">${sessions.length} workout${sessions.length===1?"":"s"} logged · ${blockDateAt(b).toLocaleDateString(undefined,{day:"numeric",month:"short"})} – ${blockEndDate(b).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</div>
+    ${recovery?`<div class="notice" style="margin-top:10px">Recovery week recorded until ${localDateFromISO(state.recoveryUntil).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"})}.</div>`:""}
+    <button class="${due?"primary":"secondary"}" style="width:100%;margin-top:11px" onclick="openBlockReview()">${due?"REVIEW SIX-WEEK PROGRESS":"VIEW BLOCK PROGRESS"}</button></section>`;
+}
+
+function exerciseHistoryEntries(name){
+  const out=[];
+  [...(state.history||[])].sort((a,b)=>(a.end||a.start||0)-(b.end||b.start||0)).forEach(h=>(h.logs||[]).forEach(log=>{
+    if(log.name!==name)return;
+    const metric=bestPerformanceMetric(log);if(!metric)return;
+    out.push({history:h,log,metric,time:h.end||h.start||0,primary:log.primary||exerciseDefinition(name)?.primary||""});
+  }));
+  return out;
+}
+function comparableEntries(entries,type){return entries.filter(x=>x.metric.type===type)}
+function exerciseBaseline(name,type){
+  const b=activeTrainingBlock(),entries=comparableEntries(exerciseHistoryEntries(name),type).filter(x=>{
+    const start=blockDateAt(b).setHours(0,0,0,0);return x.history.blockId===b?.id||x.time>=start;
+  });
+  if(!entries.length)return null;
+  const first=entries.slice(0,2),value=first.reduce((a,x)=>a+x.metric.value,0)/first.length;
+  return {value,type,status:first.length>=2?"Confirmed":"Provisional",count:first.length};
+}
+function lifetimeBest(entries,type){
+  const list=comparableEntries(entries,type);if(!list.length)return null;
+  return type==="assist"?list.reduce((a,x)=>x.metric.value<a.metric.value?x:a):list.reduce((a,x)=>x.metric.value>a.metric.value?x:a);
+}
+function metricProgress(current,reference,type){
+  if(!current||reference==null||!Number.isFinite(Number(reference)))return null;
+  const raw=type==="assist"?Number(reference)-Number(current):Number(current)-Number(reference);
+  const pct=Number(reference)?raw/Math.abs(Number(reference))*100:0;
+  return {raw,pct};
+}
+function compactMetric(value,type){
+  if(value==null||!Number.isFinite(Number(value)))return "—";
+  const n=Number(value).toFixed(1).replace(/\.0$/,"");
+  return type==="assist"?`${n}kg assist`:type==="added"?`${Number(value)>0?"+":""}${n}kg`:`${n}kg e1RM`;
+}
+function progressText(change){
+  if(!change)return "—";if(Math.abs(change.pct)<.05)return "No change";
+  return `${change.raw>0?"↑":"↓"} ${Math.abs(change.pct).toFixed(1)}%`;
+}
+function exerciseProgressSummary(name){
+  const entries=exerciseHistoryEntries(name);if(!entries.length)return null;
+  const current=entries.at(-1),same=comparableEntries(entries,current.metric.type),previous=same.at(-2)||null;
+  const baseline=exerciseBaseline(name,current.metric.type),pb=lifetimeBest(entries,current.metric.type);
+  return {name,entries,current,previous,baseline,pb,primary:current.primary,
+    vsPrevious:previous?metricProgress(current.metric.value,previous.metric.value,current.metric.type):null,
+    vsBaseline:baseline?metricProgress(current.metric.value,baseline.value,current.metric.type):null};
+}
+function allTrackedExercises(){
+  const map=new Map();
+  (state.history||[]).forEach(h=>(h.logs||[]).forEach(l=>{if(bestPerformanceMetric(l))map.set(l.name,l.primary||exerciseDefinition(l.name)?.primary||"Other")}));
+  return [...map].map(([name,muscle])=>({name,muscle,summary:exerciseProgressSummary(name)})).sort((a,b)=>(b.summary?.current.time||0)-(a.summary?.current.time||0));
+}
+function exerciseHistoryListHTML(limit=4){
+  const rows=allTrackedExercises().slice(0,limit);
+  if(!rows.length)return `<div class="trend-empty compact"><strong>No exercise history yet</strong><span>Complete a workout to start your exercise trends.</span></div>`;
+  return `<div class="recent-exercise-heading">RECENT EXERCISES</div><div class="exercise-history-list">${rows.map(x=>`<button class="exercise-history-row" onclick='openExerciseHistory(${JSON.stringify(x.name)})'><div><strong>${htmlSafe(x.name)}</strong><span>${htmlSafe(x.muscle)} · ${new Date(x.summary.current.time).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</span></div><div><strong>${compactMetric(x.summary.current.metric.value,x.summary.current.metric.type)}</strong><span class="${x.summary.vsPrevious?.raw>=0?"good":"bad"}">${x.summary.vsPrevious?`${progressText(x.summary.vsPrevious)} vs last`:"First result"}</span></div></button>`).join("")}</div>`;
+}
+function trackedExercisesForMuscle(muscle){
+  return allTrackedExercises().filter(x=>!muscle||x.muscle===muscle);
+}
+function exerciseHistoryOptions(muscle){
+  const rows=trackedExercisesForMuscle(muscle);
+  return `<option value="">${rows.length?"Choose an exercise":"No logged exercises yet"}</option>${rows.map(x=>`<option value="${htmlSafe(x.name)}">${htmlSafe(x.name)}</option>`).join("")}`;
+}
+function selectExerciseHistoryMuscle(){
+  const muscle=qs("#exerciseHistoryMuscle")?.value||"";
+  state.exerciseFilters={...(state.exerciseFilters||{}),muscle,exercise:""};save();
+  const select=qs("#exerciseHistoryExercise"),button=qs("#viewExerciseHistory");
+  if(select){select.innerHTML=exerciseHistoryOptions(muscle);select.disabled=!muscle||!trackedExercisesForMuscle(muscle).length;}
+  if(button)button.disabled=true;
+}
+function selectExerciseHistoryExercise(){
+  const exercise=qs("#exerciseHistoryExercise")?.value||"";
+  state.exerciseFilters={...(state.exerciseFilters||{}),exercise};save();
+  const button=qs("#viewExerciseHistory");if(button)button.disabled=!exercise;
+}
+function viewSelectedExerciseHistory(){
+  const exercise=qs("#exerciseHistoryExercise")?.value||"";
+  if(!exercise){toast("Choose an exercise first");return}
+  openExerciseHistory(exercise);
+}
+function exerciseTrendSVG(entries,type){
+  const list=comparableEntries(entries,type);if(!list.length)return "";
+  const vals=list.map(x=>x.metric.value),min0=Math.min(...vals),max0=Math.max(...vals),pad=Math.max(1,(max0-min0)*.18),min=min0-pad,max=max0+pad,w=340,h=178,l=26,r=14,t=18,b=30;
+  const x=i=>l+(i/Math.max(1,list.length-1))*(w-l-r),y=v=>t+(max-v)/Math.max(1,max-min)*(h-t-b),line=list.map((e,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(e.metric.value).toFixed(1)}`).join(" ");
+  return `<svg class="exercise-trend" viewBox="0 0 ${w} ${h}" role="img" aria-label="${htmlSafe(list[0].log.name)} progress chart">${[0,.5,1].map(n=>`<line x1="${l}" x2="${w-r}" y1="${t+n*(h-t-b)}" y2="${t+n*(h-t-b)}" class="trend-grid-line"/>`).join("")} ${list.length>1?`<path d="${line}" class="trend-line"/>`:""}${list.map((e,i)=>`<circle cx="${x(i)}" cy="${y(e.metric.value)}" r="4" class="trend-dot"><title>${compactMetric(e.metric.value,type)} · ${new Date(e.time).toLocaleDateString()}</title></circle>`).join("")}<text x="${l}" y="${h-8}" class="trend-axis-label">${new Date(list[0].time).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</text><text x="${w-r}" y="${h-8}" text-anchor="end" class="trend-axis-label">${new Date(list.at(-1).time).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</text></svg>`;
+}
+function openExerciseHistory(name){
+  const s=exerciseProgressSummary(name);if(!s){toast("No history for this exercise");return}
+  const type=s.current.metric.type,lower=type==="assist";
+  document.getElementById("app").innerHTML=shell(name,lower?"Assistance progress · lower is stronger":"Strength progress",
+    `<section class="card"><div class="between"><div><div class="section-kicker">Current best</div><h3 style="margin:0">${compactMetric(s.current.metric.value,type)}</h3></div><span class="badge">${s.entries.length} session${s.entries.length===1?"":"s"}</span></div>
+      <div class="comparison-grid"><div class="metric"><strong class="${s.vsPrevious?.raw>=0?"good":"bad"}">${progressText(s.vsPrevious)}</strong><span>Vs previous</span></div><div class="metric"><strong class="${s.vsBaseline?.raw>=0?"good":"bad"}">${progressText(s.vsBaseline)}</strong><span>Vs block baseline</span></div><div class="metric"><strong>${s.baseline?compactMetric(s.baseline.value,type):"—"}</strong><span>${s.baseline?.status||"No"} baseline</span></div><div class="metric"><strong>${compactMetric(s.pb?.metric.value,type)}</strong><span>Lifetime best</span></div></div>
+    </section>
+    <section class="card trend-card"><div class="between"><h3>Performance over time</h3><span class="badge">${lower?"Lower is better":"Higher is better"}</span></div><div class="exercise-chart-wrap">${exerciseTrendSVG(s.entries,type)}</div></section>
+    <section class="card"><div class="between"><h3>Session history</h3><span class="badge">Comparable results</span></div>${comparableEntries(s.entries,type).slice().reverse().map((e,i)=>`<div class="workout-row between"><div><strong>${new Date(e.time).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}</strong><div class="small">${htmlSafe(e.history.name||"Workout")}${i===0?" · latest":""}</div></div><div style="text-align:right"><strong>${compactMetric(e.metric.value,type)}</strong><div class="small">${e.metric.reps?`${e.metric.reps} reps`:"Best set"}</div></div></div>`).join("")}</section>
+    <button class="secondary" style="width:100%" onclick="go('stats')">Back to Progress</button>`,"stats");
 }
 
 function lastExerciseSession(name){
@@ -1565,8 +1934,11 @@ function stats(){
   const vals=points.map(p=>p.value),latest=vals[vals.length-1],average=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null,highest=vals.length?Math.max(...vals):null,lowest=vals.length?Math.min(...vals):null;
   const latestWeight=[...(state.checkins||[])].filter(c=>Number(c.weight)>0).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
   const latestWaist=[...(state.checkins||[])].filter(c=>Number(c.waist)>0).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
+  const tracked=allTrackedExercises(),historyMuscles=EXERCISE_GROUPS.filter(muscle=>tracked.some(x=>x.muscle===muscle));
+  const selectedHistoryMuscle=historyMuscles.includes(state.exerciseFilters?.muscle)?state.exerciseFilters.muscle:"";
   return shell("Progress","Strength, bodyweight & nutrition trends",
-    `<section class="card">
+    `${blockStatusCardHTML()}
+    <section class="card">
       <div class="between"><div><div class="section-kicker">Current measurements</div><h3 style="margin:0">Body composition</h3></div><span class="badge">Latest</span></div>
       <div class="metric-grid" style="margin-top:12px">
         <div class="metric"><strong>${latestWeight?Number(latestWeight.weight).toFixed(1):"—"}kg</strong><span>Latest bodyweight</span></div>
@@ -1576,6 +1948,17 @@ function stats(){
     <section class="card">
       <div class="between"><div><div class="section-kicker">Recent strength</div><h3 style="margin:0">Improvements</h3></div><span class="badge">Latest vs previous</span></div>
       <div style="margin-top:12px">${strengthImprovementHTML(improvements)}</div>
+    </section>
+    <section class="card exercise-history-card">
+      <div class="between"><div><div class="section-kicker">Exercise history</div><h3 style="margin:0">Track every lift</h3></div><span class="badge">Baseline · latest · PB</span></div>
+      <div class="exercise-history-guide">
+        <div class="history-step"><span>1</span><div><strong>Choose muscle group</strong><small>Start with the area you trained</small></div></div>
+        <div class="field history-select-field"><label>Muscle group</label><select id="exerciseHistoryMuscle" onchange="selectExerciseHistoryMuscle()"><option value="">Choose a muscle group</option>${historyMuscles.map(muscle=>`<option value="${htmlSafe(muscle)}" ${selectedHistoryMuscle===muscle?"selected":""}>${htmlSafe(muscle)}</option>`).join("")}</select></div>
+        <div class="history-step"><span>2</span><div><strong>Choose exercise</strong><small>Only exercises with saved results appear</small></div></div>
+        <div class="field history-select-field"><label>Exercise</label><select id="exerciseHistoryExercise" onchange="selectExerciseHistoryExercise()" ${selectedHistoryMuscle?"":"disabled"}>${exerciseHistoryOptions(selectedHistoryMuscle)}</select></div>
+        <button id="viewExerciseHistory" class="primary history-view-button" onclick="viewSelectedExerciseHistory()" disabled>VIEW EXERCISE HISTORY</button>
+      </div>
+      ${exerciseHistoryListHTML()}
     </section>
     <section class="card trend-card">
       <div class="between"><div><div class="section-kicker">Body & nutrition</div><h3 style="margin:0">${config.label} trend</h3></div>${config.target?`<button class="secondary" onclick="editMacroTargets()">Target ${formatTrendValue(config.target,config)}</button>`:`<span class="badge">${state.progressRange}</span>`}</div>
@@ -1595,6 +1978,42 @@ function stats(){
     </section>`,
   "stats");
 }
+
+function blockMeasurementChange(key,block=activeTrainingBlock()){
+  const start=blockDateAt(block).getTime(),items=(state.checkins||[]).filter(c=>Number(c[key])>0&&new Date(c.date+"T12:00:00").getTime()>=start).sort((a,b)=>a.date.localeCompare(b.date));
+  if(items.length<2)return null;return Number(items.at(-1)[key])-Number(items[0][key]);
+}
+function blockProgressExercises(block=activeTrainingBlock()){
+  return allTrackedExercises().map(x=>x.summary).filter(s=>s?.baseline&&s.current.time>=blockDateAt(block).getTime()).sort((a,b)=>(b.vsBaseline?.pct||-999)-(a.vsBaseline?.pct||-999));
+}
+function blockGritAverage(sessions){const scores=sessions.map(h=>Number(h.gritScore)).filter(Number.isFinite);return scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null}
+function openBlockReview(){
+  const b=activeTrainingBlock();if(!b)return;
+  const sessions=blockSessions(b),sets=sessions.reduce((a,h)=>a+(h.logs||[]).reduce((x,l)=>x+(l.sets||[]).filter(s=>s.setType!=="warmup").length,0),0),grit=blockGritAverage(sessions),weight=blockMeasurementChange("weight",b),waist=blockMeasurementChange("waist",b),progress=blockProgressExercises(b),due=blockReviewDue(b);
+  const plannedPerWeek=state.grit?.days?.length||0,expected=plannedPerWeek?plannedPerWeek*(Number(b.weeks)||6):null;
+  document.getElementById("app").innerHTML=shell(due?"Six-Week Review":"Block Progress",b.name||"Training Block",
+    `<section class="card block-review-hero"><div class="between"><div><div class="section-kicker">${due?"Block complete":"In progress"}</div><h3 style="margin:0">${blockDateAt(b).toLocaleDateString(undefined,{day:"numeric",month:"short"})} – ${blockEndDate(b).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}</h3></div><span class="badge">${Number(b.weeks)||6} weeks</span></div>
+      <div class="metric-grid" style="margin-top:13px"><div class="metric"><strong>${sessions.length}${expected?` / ${expected}`:""}</strong><span>Workouts${expected?" planned":""}</span></div><div class="metric"><strong>${sets}</strong><span>Working sets</span></div><div class="metric"><strong>${grit==null?"—":`${grit}%`}</strong><span>Block Grit</span></div><div class="metric"><strong>${progress.filter(x=>x.vsBaseline?.raw>0).length}</strong><span>Exercises up</span></div></div>
+    </section>
+    <section class="card"><div class="between"><h3>Strength since baseline</h3><span class="badge">${progress.length} tracked</span></div>${progress.length?progress.slice(0,8).map(s=>`<button class="block-exercise-row" onclick='openExerciseHistory(${JSON.stringify(s.name)})'><div><strong>${htmlSafe(s.name)}</strong><span>${s.baseline.status} baseline · ${compactMetric(s.baseline.value,s.current.metric.type)} → ${compactMetric(s.current.metric.value,s.current.metric.type)}</span></div><b class="${s.vsBaseline?.raw>=0?"good":"bad"}">${progressText(s.vsBaseline)}</b></button>`).join(""):`<div class="trend-empty compact"><strong>Not enough comparable exercise data yet</strong><span>Repeat exercises during this block to establish progress.</span></div>`}</section>
+    <section class="card"><div class="between"><h3>Body measurements</h3><span class="badge">During this block</span></div><div class="metric-grid" style="margin-top:12px"><div class="metric"><strong>${weight==null?"—":`${weight>0?"+":""}${weight.toFixed(1)}kg`}</strong><span>Bodyweight change</span></div><div class="metric"><strong>${waist==null?"—":`${waist>0?"+":""}${waist.toFixed(1)}cm`}</strong><span>Waist change</span></div></div></section>
+    ${due?`<section class="card review-actions"><div class="section-kicker">Choose what happens next</div><h3>Keep momentum, with a deliberate decision.</h3><button class="primary" onclick="completeTrainingBlock('continue')">CONTINUE FOR ANOTHER 6 WEEKS</button><button class="secondary" onclick="completeTrainingBlock('adjust')">Adjust programme first</button><button class="secondary" onclick="extendTrainingBlock()">Extend this block by 2 weeks</button><button class="secondary" onclick="completeTrainingBlock('recovery')">Take a recovery week</button></section>`:`<div class="notice">Your full review unlocks after week ${Number(b.weeks)||6}. You can still inspect any exercise now.</div>`}
+    <button class="secondary" style="width:100%;margin-top:10px" onclick="go('stats')">Back to Progress</button>`,"stats");
+}
+function newTrainingBlock(startDate=isoDate()){
+  const old=activeTrainingBlock();if(old)old.status="completed";
+  const number=(state.trainingBlocks||[]).length+1,b={id:`block-${Date.now()}`,name:`Training Block ${number}`,startDate,weeks:6,status:"active"};
+  state.trainingBlocks.push(b);state.activeBlockId=b.id;return b;
+}
+function completeTrainingBlock(action){
+  if(action==="recovery"){
+    const d=new Date();d.setDate(d.getDate()+7);state.recoveryUntil=isoDate(d);newTrainingBlock(state.recoveryUntil);save();go("home");toast("Recovery week recorded");return;
+  }
+  newTrainingBlock();save();
+  if(action==="adjust"){go("program");toast("New block started — adjust your programme");}
+  else{openBlockReview();toast("New six-week block started");}
+}
+function extendTrainingBlock(){const b=activeTrainingBlock();if(!b)return;b.weeks=(Number(b.weeks)||6)+2;save();openBlockReview();toast("Training block extended by 2 weeks")}
 function editMacroTargets(){
   const p=parseInt(prompt("Protein target (g):",state.macroTargets.protein));if(!(p>0))return;
   const c=parseInt(prompt("Carb target (g):",state.macroTargets.carbs));if(!(c>0))return;
@@ -1616,11 +2035,160 @@ function history(){
   "history");
 }
 
+function programmeExerciseFromLibrary(name){
+  const item=fullExerciseLibrary().find(x=>x.name===name);if(!item)return null;
+  return {
+    id:`programme-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    name:item.name,sets:Number(item.sets)||3,repMin:Number(item.repMin)||8,repMax:Number(item.repMax)||12,
+    rest:exerciseRest(item)||90,primary:item.primary,secondary:item.secondary||[],equipment:item.equipment||"Other",type:item.type||"Exercise"
+  };
+}
+function programmeWorkMinutes(exercises=[]){
+  const seconds=exercises.reduce((total,e)=>{
+    const sets=Math.max(1,Number(e.sets)||1),rest=Math.max(15,Number(e.rest)||90);
+    return total+(sets*45)+(Math.max(0,sets-1)*rest)+45;
+  },0);
+  return Math.round(seconds/60);
+}
+function refreshProgrammeDraftMinutes(){
+  const d=window.__programmeDraft;if(!d)return;
+  const currentWork=programmeWorkMinutes(d.exercises);
+  if(window.__programmeDraftIsNew)d.plannedMinutes=Math.max(10,8+currentWork);
+  else d.plannedMinutes=Math.max(10,(window.__programmeBaseMinutes||50)+(currentWork-(window.__programmeBaseWorkMinutes||0)));
+}
+function syncProgrammeDraftForm(){
+  const d=window.__programmeDraft;if(!d)return;
+  const name=qs("#programmeName"),day=qs("#programmeDay");
+  if(name)d.name=name.value.trim();
+  if(day)d.day=day.value;
+}
+function openProgrammeWorkoutEditor(workoutId=null){
+  const existing=workoutId?workoutById(workoutId):null;
+  window.__confirmDeleteWorkoutId=null;
+  window.__programmeDraft=existing
+    ?JSON.parse(JSON.stringify(existing))
+    :{id:`custom-programme-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,name:"",day:"Flexible",plannedMinutes:50,exercises:[],isCustom:true};
+  window.__programmeDraftIsNew=!existing;
+  window.__programmeBaseMinutes=existing?.plannedMinutes||50;
+  window.__programmeBaseWorkMinutes=programmeWorkMinutes(existing?.exercises||[]);
+  if(!existing)refreshProgrammeDraftMinutes();
+  renderProgrammeWorkoutEditor();
+}
+function renderProgrammeWorkoutEditor(){
+  const d=window.__programmeDraft;if(!d){go("program");return}
+  const isNew=!!window.__programmeDraftIsNew;
+  const dayOptions=["Flexible","Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  document.getElementById("app").innerHTML=shell(isNew?"Add Workout":"Edit Workout","Programme template · future sessions only",
+    `<section class="card programme-editor-card">
+      <div class="notice" style="margin-bottom:13px">Changes affect future uses of this workout. Completed sessions and historic sets stay exactly as logged.</div>
+      <div class="field programme-field"><label>Workout name</label><input id="programmeName" type="text" maxlength="48" placeholder="e.g. Push / Pull" value="${htmlSafe(d.name)}"></div>
+      <div class="input-grid programme-meta-grid">
+        <div class="field programme-field"><label>Planned day</label><select id="programmeDay">${dayOptions.map(x=>`<option value="${x}" ${d.day===x?"selected":""}>${x}</option>`).join("")}</select></div>
+        <div class="field programme-field readonly-field"><label>Estimated minutes · auto</label><div class="readonly-value programme-minutes-value">${Number(d.plannedMinutes)||50} min</div></div>
+      </div>
+    </section>
+    <section class="card custom-builder-summary">
+      <div class="between"><div><div class="section-kicker">Exercises</div><h3 style="margin:2px 0 0">${d.exercises.length} selected</h3></div><span class="badge">${totalSets(d)} working sets</span></div>
+      <div class="programme-exercise-list">
+        ${d.exercises.length?d.exercises.map((e,i)=>`<div class="programme-exercise-row">
+          <div class="custom-selected-number">${i+1}</div>
+          <div class="programme-exercise-copy"><strong>${htmlSafe(e.name)}</strong><div class="small">${Number(e.sets)||0} sets · ${Number(e.repMin)||0}–${Number(e.repMax)||0} reps · ${Number(e.rest)||0}s rest</div></div>
+          <div class="programme-row-actions">
+            <button class="icon-action" onclick="moveProgrammeDraftExercise(${i},-1)" aria-label="Move ${htmlSafe(e.name)} up" ${i===0?"disabled":""}>↑</button>
+            <button class="icon-action" onclick="moveProgrammeDraftExercise(${i},1)" aria-label="Move ${htmlSafe(e.name)} down" ${i===d.exercises.length-1?"disabled":""}>↓</button>
+            <button class="mini-edit" onclick="editProgrammeDraftExercise(${i})">Edit</button>
+          </div>
+        </div>`).join(""):`<div class="empty">No exercises yet. Add exercises by muscle group.</div>`}
+      </div>
+      <button class="secondary programme-add-exercise" onclick="openProgrammeExercisePicker()">+ Add exercise</button>
+    </section>
+    <button class="primary" onclick="saveProgrammeWorkout()">${isNew?"ADD TO PROGRAMME":"SAVE WORKOUT"}</button>
+    ${!isNew?(window.__confirmDeleteWorkoutId===d.id
+      ?`<div class="delete-confirm-panel"><strong>Delete ${htmlSafe(d.name||"this workout")}?</strong><span>It will be removed from your programme. Completed workout history will remain.</span><div class="row"><button class="secondary" onclick="window.__confirmDeleteWorkoutId=null;renderProgrammeWorkoutEditor()">Keep workout</button><button class="secondary danger" onclick='deleteProgrammeWorkout(${JSON.stringify(d.id)})'>CONFIRM DELETE</button></div></div>`
+      :`<button class="secondary danger" style="width:100%;margin-top:9px" onclick='requestDeleteProgrammeWorkout(${JSON.stringify(d.id)})'>Delete workout</button>`):""}
+    <button class="secondary" style="width:100%;margin-top:9px" onclick="go('program')">Cancel</button>`,"program");
+}
+function openProgrammeExercisePicker(){
+  syncProgrammeDraftForm();
+  const d=window.__programmeDraft;if(!d)return;
+  document.getElementById("app").innerHTML=shell("Add Exercise","Choose a muscle group",
+    `<section class="card"><div class="muscle-card-grid">${EXERCISE_GROUPS.map(m=>`<button class="muscle-pick-card" onclick='openProgrammeExerciseGroup(${JSON.stringify(m)})'><strong>${m}</strong><span>${fullExerciseLibrary().filter(x=>x.primary===m).length} exercises</span></button>`).join("")}</div></section>
+    <button class="secondary" style="width:100%" onclick="renderProgrammeWorkoutEditor()">Back to workout</button>`,"program");
+}
+function openProgrammeExerciseGroup(muscle){
+  const d=window.__programmeDraft;if(!d)return;
+  const selected=new Set(d.exercises.map(x=>x.name));
+  const items=fullExerciseLibrary().filter(x=>x.primary===muscle);
+  document.getElementById("app").innerHTML=shell(muscle,"Add an exercise to this programme workout",
+    `<section class="card muscle-picker-visual"><div class="between"><div><div class="section-kicker">Target muscle</div><h3 style="margin:0">${muscle}</h3></div><span class="badge">${d.exercises.length} selected</span></div>${muscleBodySVG({[muscle]:1})}</section>
+    <section class="card">${items.length?items.map(x=>{const added=selected.has(x.name);return `<button class="exercise-pick-card ${added?"is-selected":""}" ${added?"disabled":""} onclick='addProgrammeDraftExercise(${JSON.stringify(x.name)})'><div><strong>${htmlSafe(x.name)}</strong><div class="small">${x.sets??3} sets · ${x.repMin||8}–${x.repMax||12} reps · ${exerciseRest(x)}s · ${htmlSafe(x.equipment||"Other")}</div></div><span>${added?"Added":"Add"}</span></button>`}).join(""):`<div class="empty">No saved exercises in this muscle group yet.</div>`}</section>
+    <section class="card"><div class="between"><div><h3 style="margin:0">Not listed?</h3><div class="small">Create it once and it will remain in your exercise library.</div></div></div><button class="primary" onclick='openCustomExerciseForm("programme-builder",null,${JSON.stringify(muscle)})'>+ CREATE CUSTOM ${muscle.toUpperCase()} EXERCISE</button></section>
+    <button class="secondary" style="width:100%" onclick="openProgrammeExercisePicker()">Back to muscle groups</button>`,"program");
+}
+function addProgrammeDraftExercise(name){
+  const d=window.__programmeDraft,item=programmeExerciseFromLibrary(name);if(!d||!item)return;
+  if(d.exercises.some(x=>x.name===name)){toast(`${name} is already included`);return}
+  d.exercises.push(item);refreshProgrammeDraftMinutes();toast(`${name} added`);renderProgrammeWorkoutEditor();
+}
+function moveProgrammeDraftExercise(index,direction){
+  syncProgrammeDraftForm();
+  const list=window.__programmeDraft?.exercises||[],from=Number(index),to=from+Number(direction);
+  if(to<0||to>=list.length)return;
+  [list[from],list[to]]=[list[to],list[from]];renderProgrammeWorkoutEditor();
+}
+function editProgrammeDraftExercise(index){
+  syncProgrammeDraftForm();
+  const e=window.__programmeDraft?.exercises?.[Number(index)];if(!e)return;
+  document.getElementById("app").innerHTML=shell("Edit Exercise",e.name,
+    `<section class="card"><div class="notice" style="margin-bottom:12px">These settings apply to this programme workout only.</div>
+      <div class="input-grid programme-meta-grid">
+        <div class="field programme-field"><label>Working sets</label><input id="programmeExSets" type="number" min="1" max="20" step="1" value="${e.sets}"></div>
+        <div class="field programme-field"><label>Rest seconds</label><input id="programmeExRest" type="number" min="15" max="600" step="15" value="${e.rest}"></div>
+        <div class="field programme-field"><label>Min reps</label><input id="programmeExMin" type="number" min="1" max="100" step="1" value="${e.repMin}"></div>
+        <div class="field programme-field"><label>Max reps</label><input id="programmeExMax" type="number" min="1" max="100" step="1" value="${e.repMax}"></div>
+      </div><button class="primary" onclick="saveProgrammeDraftExercise(${Number(index)})">SAVE EXERCISE</button>
+      <button class="secondary danger" style="width:100%;margin-top:9px" onclick="removeProgrammeDraftExercise(${Number(index)})">Remove from workout</button>
+    </section><button class="secondary" style="width:100%" onclick="renderProgrammeWorkoutEditor()">Cancel</button>`,"program");
+}
+function saveProgrammeDraftExercise(index){
+  const e=window.__programmeDraft?.exercises?.[Number(index)];if(!e)return;
+  const sets=parseInt(qs("#programmeExSets")?.value),rest=parseInt(qs("#programmeExRest")?.value),repMin=parseInt(qs("#programmeExMin")?.value),repMax=parseInt(qs("#programmeExMax")?.value);
+  if(!(sets>0&&rest>=15&&repMin>0&&repMax>=repMin)){toast("Check sets, reps and rest");return}
+  Object.assign(e,{sets,rest,repMin,repMax});refreshProgrammeDraftMinutes();renderProgrammeWorkoutEditor();
+}
+function removeProgrammeDraftExercise(index){
+  window.__programmeDraft?.exercises?.splice(Number(index),1);refreshProgrammeDraftMinutes();renderProgrammeWorkoutEditor();
+}
+function saveProgrammeWorkout(){
+  syncProgrammeDraftForm();
+  const d=window.__programmeDraft;if(!d)return;
+  if(!d.name){toast("Enter a workout name");return}
+  if(!d.exercises.length){toast("Add at least one exercise");return}
+  const existingIndex=state.program.findIndex(x=>x.id===d.id);
+  const clean={...d,name:d.name.trim(),plannedMinutes:Number(d.plannedMinutes)||50,exercises:d.exercises.map(e=>({...e,sets:Number(e.sets),repMin:Number(e.repMin),repMax:Number(e.repMax),rest:Number(e.rest)}))};
+  if(existingIndex>=0)state.program[existingIndex]=clean;else state.program.push(clean);
+  if(!state.selectedProgram)state.selectedProgram=clean.id;
+  save();window.__programmeDraft=null;window.__programmeDraftIsNew=false;state.route="program";save();render();toast(existingIndex>=0?"Workout updated":"Workout added to your programme");
+}
+function deleteProgrammeWorkout(id){
+  const w=workoutById(id);if(!w)return;
+  if(state.program.length<=1){toast("Keep at least one programme workout");return}
+  state.program=state.program.filter(x=>x.id!==id);
+  if(state.selectedProgram===id)state.selectedProgram=state.program[0]?.id||null;
+  window.__programmeDraft=null;window.__programmeDraftIsNew=false;state.route="program";save();render();toast("Workout removed from programme");
+}
+function requestDeleteProgrammeWorkout(id){
+  const w=workoutById(id);if(!w){toast("Workout could not be found");return}
+  if(state.program.length<=1){toast("Keep at least one programme workout");return}
+  window.__confirmDeleteWorkoutId=id;renderProgrammeWorkoutEditor();
+}
+
 function program(){
-  return shell("Programme","Your 5-day split",
-    `<section class="card">${state.program.map(w=>`<div class="workout-row">
-      <div class="between"><div><strong>${w.day} · ${w.name}</strong><div class="small">${w.exercises.length} exercises · ${totalSets(w)} sets</div></div><button class="secondary" onclick="state.selectedProgram='${w.id}';save();go('home')">Use</button></div>
-      <div style="margin-top:10px">${w.exercises.map(e=>`<div class="small" style="padding:4px 0">${e.name} · ${e.sets} × ${e.repMin}–${e.repMax} · ${e.rest}s rest</div>`).join("")}</div>
+  return shell("Programme","Build, edit and select your workout plan",
+    `<section class="plan-toolbar"><div><div class="section-kicker">Programme library</div><strong>${state.program.length} workout${state.program.length===1?"":"s"}</strong></div><button class="primary compact-primary" onclick="openProgrammeWorkoutEditor()">+ ADD WORKOUT</button></section>
+    <section class="card">${state.program.map(w=>`<div class="workout-row">
+      <div class="between"><div><strong>${htmlSafe(w.day||"Flexible")} · ${htmlSafe(w.name)}</strong><div class="small">${w.exercises.length} exercises · ${totalSets(w)} sets · ~${w.plannedMinutes||50} min</div></div><div class="plan-card-actions"><button class="secondary" onclick="openProgrammeWorkoutEditor('${w.id}')">Edit</button><button class="secondary plan-use" onclick="state.selectedProgram='${w.id}';save();go('home')">Use</button></div></div>
+      <div style="margin-top:10px">${w.exercises.map(e=>`<div class="small" style="padding:4px 0">${htmlSafe(e.name)} · ${e.sets} × ${e.repMin}–${e.repMax} · ${e.rest}s rest</div>`).join("")}</div>
     </div>`).join("")}</section>
     <section class="card">
       <h3>60-minute session design</h3>
@@ -1669,6 +2237,7 @@ function importData(event){
         if(!state.macroTargets)state.macroTargets={protein:190,carbs:250,fat:80};
         if(!state.progressMetric)state.progressMetric="weight";
         if(!state.progressRange)state.progressRange="7D";
+        if(!/^\d{4}-\d{2}$/.test(state.calendarMonth||""))state.calendarMonth=isoDate().slice(0,7);
         state.progressPoint=-1;
         save();
         toast("Backup restored");
@@ -1715,11 +2284,13 @@ window.addExercise=addExercise; window.skipExercise=skipExercise; window.moveExe
 window.moveExerciseAt=moveExerciseAt;
 window.setLoadMode=setLoadMode; window.editSet=editSet; window.deleteSet=deleteSet; window.finishWorkoutEarly=finishWorkoutEarly; window.setDefaultRest=setDefaultRest;
 window.saveCheckin=saveCheckin;window.buildTopUp=buildTopUp;window.startBlankCustom=startBlankCustom;
-window.addToBlankCustom=addToBlankCustom;window.launchBlankCustom=launchBlankCustom;window.editMacroTargets=editMacroTargets;
+window.renderCustomWorkoutBuilder=renderCustomWorkoutBuilder;window.openCustomWorkoutGroup=openCustomWorkoutGroup;
+window.addToBlankCustom=addToBlankCustom;window.removeFromBlankCustom=removeFromBlankCustom;window.launchBlankCustom=launchBlankCustom;window.editMacroTargets=editMacroTargets;
 window.openExercisePicker=openExercisePicker;window.openExerciseGroup=openExerciseGroup;window.chooseExerciseFromPicker=chooseExerciseFromPicker;
 window.addExerciseByName=addExerciseByName;window.replaceExerciseAtIndex=replaceExerciseAtIndex;
 window.openCustomExerciseForm=openCustomExerciseForm;window.saveCustomExerciseFromForm=saveCustomExerciseFromForm;
 window.openCalendarDate=openCalendarDate;window.saveCheckinForDate=saveCheckinForDate;
+window.changeCalendarMonth=changeCalendarMonth;
 window.chooseBackdatedWorkout=chooseBackdatedWorkout;window.createBackdatedWorkout=createBackdatedWorkout;
 window.createBackdatedCustomWorkout=createBackdatedCustomWorkout;
 window.saveWeeklyWaist=saveWeeklyWaist;
@@ -1727,6 +2298,15 @@ window.openEditExerciseDefaults=openEditExerciseDefaults;window.saveExerciseDefa
 window.openEditCurrentExercise=openEditCurrentExercise;window.saveCurrentExercisePlan=saveCurrentExercisePlan;
 window.updateAutoCalories=updateAutoCalories;
 window.setProgressMetric=setProgressMetric;window.setProgressRange=setProgressRange;window.selectTrendPoint=selectTrendPoint;
+window.openProgrammeWorkoutEditor=openProgrammeWorkoutEditor;window.renderProgrammeWorkoutEditor=renderProgrammeWorkoutEditor;
+window.openProgrammeExercisePicker=openProgrammeExercisePicker;window.openProgrammeExerciseGroup=openProgrammeExerciseGroup;
+window.addProgrammeDraftExercise=addProgrammeDraftExercise;window.moveProgrammeDraftExercise=moveProgrammeDraftExercise;
+window.editProgrammeDraftExercise=editProgrammeDraftExercise;window.saveProgrammeDraftExercise=saveProgrammeDraftExercise;
+window.removeProgrammeDraftExercise=removeProgrammeDraftExercise;window.saveProgrammeWorkout=saveProgrammeWorkout;window.deleteProgrammeWorkout=deleteProgrammeWorkout;window.requestDeleteProgrammeWorkout=requestDeleteProgrammeWorkout;
+window.openGritSettings=openGritSettings;window.toggleGritDay=toggleGritDay;window.saveGritSettings=saveGritSettings;window.saveNextWorkoutDate=saveNextWorkoutDate;
+window.selectExerciseHistoryMuscle=selectExerciseHistoryMuscle;window.selectExerciseHistoryExercise=selectExerciseHistoryExercise;
+window.viewSelectedExerciseHistory=viewSelectedExerciseHistory;window.openExerciseHistory=openExerciseHistory;
+window.openBlockReview=openBlockReview;window.completeTrainingBlock=completeTrainingBlock;window.extendTrainingBlock=extendTrainingBlock;
 render();
 
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
